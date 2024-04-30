@@ -94,8 +94,7 @@ module.exports = function(app, io) {
                 return res.status(400).send({ message: 'Both from and to parameters are required.' });
             }
             const diffs = await getDiffs({ from, to });
-            console.log(diffs);
-            res.send(diffs); 
+            res.send({diffs}); 
         } catch (error) {
             res.status(500).send({ message: 'Failed to retrieve commit logs', error });
         }
