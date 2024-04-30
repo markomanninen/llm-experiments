@@ -7,7 +7,7 @@ toolSchemas = {
         "definitions": {},
         "schemas": {
             "dynamic_content_management": {
-                "description": "A web application server that allows real-time editing and version control of HTML, JavaScript, and CSS content. Users can add, update, delete, and revert changes in HTML elements, and update JavaScript and CSS content dynamically.",
+                "description": "A web application server tool that allows real-time editing and version control of HTML, JavaScript, and CSS content. Users can add, update, delete, and revert changes in HTML elements, and update JavaScript and CSS content dynamically with operations given in arguments. Each argument contains a subset of operation details.",
                 "arguments": {
                     "type": "object",
                     "properties": {
@@ -84,6 +84,38 @@ toolSchemas = {
                                 }
                             },
                             "additionalProperties": false
+                        },
+                        
+                        "commits": {
+                            "type": "object",
+                            "description": "Get commit logs, optionally filtered by various criteria such as hash, author, or date range.",
+                            "properties": {
+                                "filters": {
+                                    "type": "object",
+                                    "properties": {
+                                        "commitHash": {
+                                            "type": "string",
+                                            "description": "Filter by the Git commit hash."
+                                        },
+                                        "author": {
+                                            "type": "string",
+                                            "description": "Filter by the author of the commit."
+                                        },
+                                        "since": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "description": "Filter commits after a specific date."
+                                        },
+                                        "until": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "description": "Filter commits before a specific date."
+                                        }
+                                    },
+                                    "additionalProperties": false
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     },
                     "oneOf": [
@@ -92,7 +124,8 @@ toolSchemas = {
                         { "required": ["delete_element"] },
                         { "required": ["update_js"] },
                         { "required": ["update_css"] },
-                        { "required": ["revert_changes"] }
+                        { "required": ["revert_changes"] },
+                        { "required": ["commits"] }
                     ],
                     "additionalProperties": false
                 }

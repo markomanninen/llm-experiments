@@ -41,10 +41,13 @@ const {
     getPrompt,
     randomPersona,
     assistantPersonas,
-    system_message_metadata, 
-    system_message_metadata_schema, 
     system_message_metadata_tools_epilogue, 
     system_message_metadata_schema_tools_part 
+} = require('./prompts');
+
+let { 
+    system_message_metadata, 
+    system_message_metadata_schema
 } = require('./prompts');
 
 const { JsonStorage, RuntimeMemoryStorage, nodeCodeRunner, extractAndParseJsonBlock } = require('./utils');
@@ -489,8 +492,8 @@ async function dynamicContentDispatcher(operationData) {
                 if (!params.id || params.content === undefined) {
                     return { success: false, message: "Missing 'id' or 'content' required for operation." };
                 }
-                response = await fetch(`${endpoint}/${operation}`, {
-                    method: 'POST',
+                response = await fetch(`${endpoint}/element`, {
+                    method: operation == 'add_element' ? 'POST' : 'PUT',
                     headers: headers,
                     body: JSON.stringify({ id: params.id, content: params.content })
                 });
@@ -500,8 +503,8 @@ async function dynamicContentDispatcher(operationData) {
                 if (!params.id) {
                     return { success: false, message: "Missing 'id' required for deletion." };
                 }
-                response = await fetch(`${endpoint}/delete_element`, {
-                    method: 'POST',
+                response = await fetch(`${endpoint}/element`, {
+                    method: 'DELETE',
                     headers: headers,
                     body: JSON.stringify({ id: params.id })
                 });
@@ -529,11 +532,21 @@ async function dynamicContentDispatcher(operationData) {
                     body: JSON.stringify({ commitHash: params.commitHash })
                 });
                 break;
+            
+            case 'commits':
+                const queryParams = new URLSearchParams();
+                Object.entries(params.filters).forEach(([key, value]) => {
+                    if (value) queryParams.append(key, value);
+                });
+                response = await fetch(`${endpoint}/commits?${queryParams.toString()}`, {
+                    method: 'GET',
+                    headers: headers
+                });
+                break;
 
             default:
                 return { success: false, message: "Invalid operation specified." };
         }
-
         // Check response status and parse JSON
         if (response.ok) {
             const data = await response.json();
@@ -801,7 +814,7 @@ async function ollamaPromptRequest(prompt, model, system = "", temperature = 0.0
 
 async function generateSummary(userMessage, model, callback) {
     try {
-        const system = getPrompt("summarySystemPrompt").replace("<<previous_summary>>", (messages.length > messageLimit ? summary : 'n/a'))
+        const system = getPrompt("summarySystemPrompt", llmClient, model).replace("<<previous_summary>>", (messages.length > messageLimit ? summary : 'n/a'))
         return callback(userMessage, model, system, 0.0, 1024, 1);
     } catch (error) {
         return { error: `An error occurred in generate summary: ${error.message}`, text: "" };
@@ -1026,13 +1039,13 @@ async function spinRequest(prompt, slice = false) {
 
     stopSpinner.isStopped = false;
     const spinnerThread = spinner(stopSpinner);
-    const system_prompt = getPrompt("systemPrompt").
+    const system_prompt = getPrompt("systemPrompt", llmClient, model).
         replace("<<assistant_persona>>", assistantPersonas[assistantPersona]).
         replace(/<<model>>/g, `${assistantPersona} (${model})`).
         replace("<<function_calling_tools>>", tools ? JSON.stringify(tools) : 'n/a').
         // Secret vault can be used in non-streaming mode only
         // It is hard to detect code block and remove them from the streaming output
-        //replace("<<miscallaneous_tools>>", (stream ? "n/a" : getPrompt("secretVaultPrompt").
+        //replace("<<miscallaneous_tools>>", (stream ? "n/a" : getPrompt("secretVaultPrompt", llmClient, model).
         //replace("<<vault>>", JSON.stringify(secretVault)))).
         // Start keeping the latest cumulative summary on the system prompt when message limit has been exceeded
         replace("<<summary>>", (summary ? summary : 'n/a')).
@@ -1300,7 +1313,7 @@ function printInfo() {
 
    Global variables: \x1B[38;5;45m${JSON.stringify(variables, null, 2)}\x1B[0m
    
-   System prompt: \x1B[38;5;45m${getPrompt("systemPrompt")}\x1B[0m
+   System prompt: \x1B[38;5;45m${getPrompt("systemPrompt", llmClient, model)}\x1B[0m
     
    Summary: \x1B[38;5;45m${summary ? summary : "n/a"}\x1B[0m
     
@@ -1571,7 +1584,7 @@ async function handleToolsResponse(response, prompt) {
                         } else */if (toolName in functionToolCallbacks) {
                             // Check arguments against schema
                             //console.log("Tool arguments:", toolArguments);
-                            let functionCallResult = functionToolCallbacks[toolName](toolArguments);
+                            let functionCallResult = await functionToolCallbacks[toolName](toolArguments);
                             //console.log(functionCallResult);
                             //const systemMessage = `Role: system. Called tool ${i} with given arguments. Waiting for output...`;
                             const userMessage = `Tool ${i} executed with results: ${JSON.stringify(functionCallResult)}.`;
@@ -1762,7 +1775,7 @@ async function interactiveChatSession(modelName, llmClientName) {
 
     console.log(`\n${assistantPersona} interacting with ${default_str}${llmClient} model '${model}'. Enter your prompt (or type '\\info' or '\\exit'). Ping to warm up service...\n`);
     // Warm up the server
-    await processUserInput(getPrompt("pingPrompt"), withToolRequest = false);
+    await processUserInput(getPrompt("pingPrompt", llmClient, model), withToolRequest = false);
     // Start the interactive chat session by reading user input
     rl.on('line', async (input) => {
         await processUserInput(input);

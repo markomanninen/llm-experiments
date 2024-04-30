@@ -22,10 +22,23 @@ async function commitChanges(message) {
  * Retrieves the commit logs from the git repository.
  * @returns {Promise<Array>} - A promise that resolves to an array of commit logs.
  */
-async function getCommitLogs() {
+async function getCommitLogs(params) {
+
+    const { commitHash, author, since, until } = params;
+
     try {
-        const logs = await git.log();
-        return logs.all; // Return all commit logs
+        const options = {
+            '--author': author,
+            '--since': since,
+            '--until': until,
+            '--grep': commitHash
+        };
+
+        // Filter out undefined options
+        Object.keys(options).forEach(key => options[key] === undefined && delete options[key]);
+
+        const logs = await git.log(options);
+        return logs.all;
     } catch (error) {
         console.error('Error retrieving commit logs:', error);
         throw error; // Rethrow to handle it in the calling context

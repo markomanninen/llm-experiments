@@ -245,7 +245,7 @@ const prompts = {
 }
 
 
-function getPrompt(promptName) {
+function getPrompt(promptName, llmClient, model) {
     // Navigate the prompts array structure
     if (prompts[llmClient] && prompts[llmClient][model] && prompts[llmClient][model][promptName]) {
         return prompts[llmClient][model][promptName];

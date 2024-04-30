@@ -47,10 +47,10 @@ module.exports = function(app, io) {
     });
 
     // Route to handle JavaScript updates
-    app.post('/update-js', async (req, res) => {
+    app.post('/update_js', async (req, res) => {
         try {
             await writeFile(jsFilePath, req.body.content);
-            io.emit('update-js', req.body.content);
+            io.emit('update_js', req.body.content);
             await commitChanges('Updated JavaScript content');
             res.send({ message: 'JavaScript updated' });
         } catch (error) {
@@ -59,10 +59,10 @@ module.exports = function(app, io) {
     });
 
     // Route to handle CSS updates
-    app.post('/update-css', async (req, res) => {
+    app.post('/update_css', async (req, res) => {
         try {
             await writeFile(cssFilePath, req.body.content);
-            io.emit('update-css', req.body.content);
+            io.emit('update_css', req.body.content);
             await commitChanges('Updated CSS content');
             res.send({ message: 'CSS updated' });
         } catch (error) {
@@ -73,7 +73,7 @@ module.exports = function(app, io) {
     // Route to get commit logs
     app.get('/commits', async (req, res) => {
         try {
-            const logs = await getCommitLogs();
+            const logs = await getCommitLogs(req.query);
             res.send(logs);
         } catch (error) {
             res.status(500).send({ message: 'Failed to retrieve commit logs', error });

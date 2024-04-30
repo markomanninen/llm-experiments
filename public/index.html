@@ -16,7 +16,7 @@
             document.getElementById('root').innerHTML = html;
         });
 
-        socket.on('update-js', function(content) {
+        socket.on('update_js', function(content) {
             const existingScript = document.getElementById('dynamic-script');
             if (existingScript) {
                 document.body.removeChild(existingScript);
@@ -27,7 +27,7 @@
             document.body.appendChild(script);
         });
 
-        socket.on('update-css', function(content) {
+        socket.on('update_css', function(content) {
             const styleElement = document.getElementById('dynamic-style');
             styleElement.textContent = content; // Update the content of an existing style element
         });
