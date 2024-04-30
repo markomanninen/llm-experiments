@@ -1,0 +1,29 @@
+{
+    "name": "llm-experiments",
+    "version": "1.0.0",
+    "description": "A Node.js project for experimenting with various LLM and TTS APIs.",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/markomanninen/llm-experiments.git"
+    },
+    "author": "Marko Manninen",
+    "license": "ISC",
+    "dependencies": {
+        "@anthropic-ai/sdk": "0.20.8",
+        "@deepgram/sdk": "3.3.1",
+        "axios": "1.6.8",
+        "dotenv": "16.4.5",
+        "elevenlabs": "0.4.1",
+        "express": "^4.19.2",
+        "groq-sdk": "0.3.3",
+        "openai": "4.39.0",
+        "simple-git": "^3.24.0",
+        "socket.io": "^4.7.5",
+        "vm": "0.1.0",
+        "yargs": "17.7.2"
+    }
+}
