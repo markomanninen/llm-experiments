@@ -488,14 +488,24 @@ async function dynamicContentDispatcher(operationData) {
         let response;
         switch (operation) {
             case 'add_element':
-            case 'update_element':
                 if (!params.id || params.content === undefined) {
                     return { success: false, message: "Missing 'id' or 'content' required for operation." };
                 }
                 response = await fetch(`${endpoint}/element`, {
-                    method: operation == 'add_element' ? 'POST' : 'PUT',
+                    method: 'POST',
                     headers: headers,
                     body: JSON.stringify({ id: params.id, content: params.content })
+                });
+                break;
+            
+            case 'update_element':
+                if (!params.id || params.content === undefined) {
+                    return { success: false, message: "Missing 'id' or 'content' required for operation." };
+                }
+                response = await fetch(`${endpoint}/element/${params.id}`, {
+                    method: 'PUT',
+                    headers: headers,
+                    body: JSON.stringify({ content: params.content })
                 });
                 break;
 
@@ -503,10 +513,9 @@ async function dynamicContentDispatcher(operationData) {
                 if (!params.id) {
                     return { success: false, message: "Missing 'id' required for deletion." };
                 }
-                response = await fetch(`${endpoint}/element`, {
+                response = await fetch(`${endpoint}/element/${params.id}`, {
                     method: 'DELETE',
-                    headers: headers,
-                    body: JSON.stringify({ id: params.id })
+                    headers: headers
                 });
                 break;
 
@@ -552,7 +561,8 @@ async function dynamicContentDispatcher(operationData) {
             const data = await response.json();
             return { success: true, data };
         } else {
-            return { success: false, message: `Server responded with status: ${response.status}  ${response.message}` };
+            console.error(response, response.json());
+            return { success: false, message: `Server responded with status: ${response.status}` };
         }
     } catch (error) {
         console.error('Error with API request:', error);

@@ -35,7 +35,8 @@ module.exports = function(app, io) {
     });
 
     app.delete('/element/:id', async (req, res) => {
-        const start = global.htmlTree.indexOf(`<div id="${req.params.id}">`);
+        const id = req.params.id;
+        const start = global.htmlTree.indexOf(`<div id="${id}">`);
         if (start === -1) {
             res.status(404).send({ message: 'Element not found' });
             return;
@@ -45,7 +46,7 @@ module.exports = function(app, io) {
         global.htmlTree = global.htmlTree.replace(element, '');
         await writeFile(htmlFilePath, global.htmlTree);
         io.emit('update', global.htmlTree);
-        await commitChanges(`Deleted element ${req.params.id}`);
+        await commitChanges(`Deleted element ${id}`);
         res.send({ message: 'Element deleted', htmlTree: global.htmlTree });
     });
 
