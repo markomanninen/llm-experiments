@@ -6,6 +6,7 @@ toolSchemas = {
         "header": "",
         "definitions": {},
         "schemas": {
+
             "dynamic_content_management": {
                 "description": "A web application server tool that allows real-time editing and version control of HTML, JavaScript, and CSS content. Users can add, update, delete, and revert changes in HTML elements, and update JavaScript and CSS content dynamically with operations given in arguments. Each argument contains a subset of operation details.",
                 "arguments": {
@@ -74,6 +75,7 @@ toolSchemas = {
                             },
                             "additionalProperties": false
                         },
+
                         "revert_changes": {
                             "type": "object",
                             "description": "Revert to a previous commit. This rolls back the content of the web page to the state of a specified commit hash.",
@@ -84,6 +86,23 @@ toolSchemas = {
                                 }
                             },
                             "additionalProperties": false
+                        },
+
+                        "diffs": {
+                            "type": "object",
+                            "description": "Get the differences between two commits. The server responds with the changes between the specified commits in raw format.",
+                            "properties": {
+                                "from": {
+                                    "type": "string",
+                                    "description": "The Git commit hash or tag from which to compare changes."
+                                },
+                                "to": {
+                                    "type": "string",
+                                    "description": "The Git commit hash or tag up to which to compare changes."
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": ["from", "to"]
                         },
                         
                         "commits": {

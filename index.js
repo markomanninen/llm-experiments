@@ -544,10 +544,24 @@ async function dynamicContentDispatcher(operationData) {
             
             case 'commits':
                 const queryParams = new URLSearchParams();
+                // Filters: commitHash, author, since, until
                 Object.entries(params.filters).forEach(([key, value]) => {
                     if (value) queryParams.append(key, value);
                 });
                 response = await fetch(`${endpoint}/commits?${queryParams.toString()}`, {
+                    method: 'GET',
+                    headers: headers
+                });
+                break;
+            
+            case 'diffs':
+                if (!params.from || !params.to) {
+                    return { success: false, message: "Both 'from' and 'to' are required for diff operation." };
+                }
+                const queryParamsDiff = new URLSearchParams();
+                queryParamsDiff.append('from', params.from);
+                queryParamsDiff.append('to', params.to);
+                response = await fetch(`${endpoint}/diffs?${queryParamsDiff.toString()}`, {
                     method: 'GET',
                     headers: headers
                 });

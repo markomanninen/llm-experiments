@@ -61,8 +61,26 @@ async function revertToCommit(commitHash) {
     }
 }
 
+/**
+ * Retrieves diffs between two commits.
+ * @param {Object} params Parameters to specify from which commit to which commit.
+ * @returns {Promise<string>} A promise that resolves to the diffs as a string.
+ */
+async function getDiffs(params) {
+    const { from, to } = params;
+    try {
+        // Get the diff from 'from' commit to 'to' commit
+        const diffOutput = await git.diff([`${from}..${to}`]);
+        return diffOutput;
+    } catch (error) {
+        console.error('Error retrieving diffs:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     commitChanges,
     getCommitLogs,
-    revertToCommit
+    revertToCommit,
+    getDiffs
 };

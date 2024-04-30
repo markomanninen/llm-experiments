@@ -1,11 +1,12 @@
 const { writeFile, readFile } = require('./fileOperations');
-const { commitChanges, getCommitLogs, revertToCommit } = require('./gitOperations');
+const { commitChanges, getCommitLogs, revertToCommit, getDiffs } = require('./gitOperations');
 
 const jsFilePath = './public/script.js';
 const cssFilePath = './public/style.css';
 const htmlFilePath = './public/tree.html';
 
 module.exports = function(app, io) {
+
     // CRUD operations for HTML elements
     app.post('/element', async (req, res) => {
         // Assume htmlTree is being managed somewhere in the server state
@@ -53,7 +54,7 @@ module.exports = function(app, io) {
     // Route to handle JavaScript updates
     app.post('/update_js', async (req, res) => {
         try {
-            await writeFile(jsFilePath, req.body.content);
+            await writeFile(jsFilePath, req.body.content, append = true);
             io.emit('update_js', req.body.content);
             await commitChanges('Updated JavaScript content');
             res.send({ message: 'JavaScript updated' });
@@ -65,7 +66,7 @@ module.exports = function(app, io) {
     // Route to handle CSS updates
     app.post('/update_css', async (req, res) => {
         try {
-            await writeFile(cssFilePath, req.body.content);
+            await writeFile(cssFilePath, req.body.content, append = true);
             io.emit('update_css', req.body.content);
             await commitChanges('Updated CSS content');
             res.send({ message: 'CSS updated' });
@@ -79,6 +80,22 @@ module.exports = function(app, io) {
         try {
             const logs = await getCommitLogs(req.query);
             res.send(logs);
+        } catch (error) {
+            res.status(500).send({ message: 'Failed to retrieve commit logs', error });
+        }
+    });
+
+    // Route to get diffs between commits
+    app.get('/diffs', async (req, res) => {
+        try {
+            // Extract 'from' and 'to' query parameters from the request
+            const { from, to } = req.query;
+            if (!from || !to) {
+                return res.status(400).send({ message: 'Both from and to parameters are required.' });
+            }
+            const diffs = await getDiffs({ from, to });
+            console.log(diffs);
+            res.send(diffs); 
         } catch (error) {
             res.status(500).send({ message: 'Failed to retrieve commit logs', error });
         }

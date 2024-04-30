@@ -1,19 +1,22 @@
 const fs = require('fs');
 
 /**
- * Writes content to a file asynchronously.
+ * Writes or appends content to a file.
  * @param {string} path - The file path where the content should be written.
  * @param {string} content - The content to write to the file.
+ * @param {boolean} [append=false] - Whether to append the content instead of overwriting.
  * @returns {Promise<void>} - A promise that resolves when the write operation is complete, or rejects with an error.
  */
-function writeFile(path, content) {
+function writeFile(path, content, append = false) {
     return new Promise((resolve, reject) => {
-        fs.writeFile(path, content, 'utf8', (err) => {
+        const writeFunction = append ? fs.appendFile : fs.writeFile;
+
+        writeFunction(path, content, 'utf8', (err) => {
             if (err) {
-                console.error('Failed to write file:', path, err);
+                console.error(`Failed to ${append ? 'append to' : 'write'} file:`, path, err);
                 reject(err);
             } else {
-                console.log(`Content written to ${path}`);
+                console.log(`${append ? 'Appended to' : 'Content written to'} ${path}`);
                 resolve();
             }
         });
