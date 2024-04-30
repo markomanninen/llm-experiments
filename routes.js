@@ -11,6 +11,7 @@ module.exports = function(app, io) {
         // Assume htmlTree is being managed somewhere in the server state
         const { id, content } = req.body;
         global.htmlTree += `<div id="${id}">${content}</div>`; // Adding element
+        await writeFile(htmlFilePath, global.htmlTree);
         io.emit('update', global.htmlTree);
         await commitChanges(`Added element ${id}`);
         res.status(201).send({ message: 'Element added', htmlTree: global.htmlTree });
@@ -27,6 +28,7 @@ module.exports = function(app, io) {
         const oldElement = global.htmlTree.substring(start, end);
         const newElement = `<div id="${req.params.id}">${content}</div>`;
         global.htmlTree = global.htmlTree.replace(oldElement, newElement);
+        await writeFile(htmlFilePath, global.htmlTree);
         io.emit('update', global.htmlTree);
         await commitChanges(`Updated element ${req.params.id}`);
         res.send({ message: 'Element updated', htmlTree: global.htmlTree });
@@ -41,6 +43,7 @@ module.exports = function(app, io) {
         const end = global.htmlTree.indexOf('</div>', start) + 6;
         const element = global.htmlTree.substring(start, end);
         global.htmlTree = global.htmlTree.replace(element, '');
+        await writeFile(htmlFilePath, global.htmlTree);
         io.emit('update', global.htmlTree);
         await commitChanges(`Deleted element ${req.params.id}`);
         res.send({ message: 'Element deleted', htmlTree: global.htmlTree });

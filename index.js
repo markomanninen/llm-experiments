@@ -552,7 +552,7 @@ async function dynamicContentDispatcher(operationData) {
             const data = await response.json();
             return { success: true, data };
         } else {
-            return { success: false, message: `Server responded with status: ${response.status}` };
+            return { success: false, message: `Server responded with status: ${response.status}  ${response.message}` };
         }
     } catch (error) {
         console.error('Error with API request:', error);
@@ -1546,6 +1546,12 @@ async function handleToolsResponse(response, prompt) {
     //console.log(response);
     // There is the previous response available
     if (response) {
+
+        if (response.error) {
+            console.error(response.error.message);
+            await handleResponse(await spinRequest(prompt, true));
+            return;
+        }
 
         let extractedMetadata = extractAndParseJsonBlock(response.text, tools);
 

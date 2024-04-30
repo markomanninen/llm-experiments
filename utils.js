@@ -3,11 +3,14 @@ const path = require('path');
 const fs = require('fs');
 
 const extractAndParseJsonBlock = (text, tools) => {
+
+    if (!text) return { result: null, success: false };
+    
     let stack = [];
     let start_index = null;
     let results = [];
 
-    //console.log(`Text to be JSON extracted: ${text}`);
+    console.log(`Text to be JSON extracted: ${text}`);
 
     for (let index = 0; index < text.length; index++) {
         let char = text.charAt(index);
@@ -44,7 +47,7 @@ const extractAndParseJsonBlock = (text, tools) => {
             }
         }
     }
-
+    console.log(`Extracted JSON blocks: ${results}`);
     //const metadataFields = ['topics', 'intent'];
     // Optionally, check for other function calling tools if needed
     if (tools) {
