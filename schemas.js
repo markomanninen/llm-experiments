@@ -165,7 +165,7 @@ toolSchemas = {
                     "properties": {
                         "init_word": {
                             "type": "string",
-                            "description": "The word invented by assistant and to be guessed by the user. The word should be in lowercase and contain only letters. Invent the word and set init_word argument for the user to guess. Word cannot be a placeholder or anonymized string similar to ***, ???, _ _ _ etc. Do not tell word to the user!"
+                            "description": "The word invented by assistant and to be guessed by the user. The word should be in lowercase and contain only letters. Invent the word and set init_word argument for the user to guess. Be creative! Word cannot be a placeholder or anonymized string similar to ***, ???, _ _ _ etc. Do not tell word to the user!"
                         },
                         "guess_letter": {
                             "type": "string",
@@ -213,14 +213,14 @@ toolSchemas = {
                 }
             },
 
-            "ping_pong_game": {
-                "description": "A simple ping-pong game where the user must guess 'ping' or 'pong'. The game keeps track of the user's score.",
+            "heads_or_tails": {
+                "description": "A simple head-or-tails game where the user must guess 'heads' or 'tails'. The game keeps track of the user's score.",
                 "arguments": {
                     "type": "object",
                     "properties": {
                         "user_input": {
                             "type": "string",
-                            "description": "The user must say 'ping' or 'pong'. The game keeps track of the user's score."
+                            "description": "The user must say 'heads' or 'tails'. The game keeps track of the user's score."
                         }
                     },
                     "required": ["user_input"],
@@ -228,7 +228,7 @@ toolSchemas = {
                 }
             },
 
-            "number_guessing_game": {
+            "number_guessing": {
                 "description": "A classic number guessing game where the user tries to guess a secret number within a specified range and a limited number of attempts. The game provides hints such as 'too high', 'too low', or 'correct' based on the user's guesses. The game ends when the user guesses the number or runs out of attempts. The game can be initialized with a new secret number range and number of attempts, or the user can make a guess to receive feedback.",
                 "arguments": {
                     "type": "object",
