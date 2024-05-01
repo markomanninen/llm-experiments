@@ -16,7 +16,7 @@ function writeFile(path, content, append = false) {
                 console.error(`Failed to ${append ? 'append to' : 'write'} file:`, path, err);
                 reject(err);
             } else {
-                console.log(`${append ? 'Appended to' : 'Content written to'} ${path}`);
+                console.log(`${append ? 'Content appended to' : 'Content written to'} ${path}`);
                 resolve();
             }
         });
