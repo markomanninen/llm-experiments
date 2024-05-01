@@ -1,0 +1,79 @@
+{
+  "description": "A web application server tool that allows real-time editing and version control of HTML, JavaScript, and CSS content. Users can add, update, delete, and revert changes in HTML elements, and update JavaScript and CSS content dynamically with operations given in arguments. Each argument contains a subset of operation details.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "add_element": {
+        "type": "object",
+        "description": "Add a new HTML element to the web page. The server updates all clients in real time and commits the change to version control.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The unique identifier for the new HTML element."
+          },
+          "content": {
+            "type": "string",
+            "description": "The content to be placed inside the new HTML element."
+          }
+        },
+        "additionalProperties": false
+      },
+      "update_element": {
+        "type": "object",
+        "description": "Update an existing HTML element. The server broadcasts the update and commits it to version control.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The unique identifier for the HTML element to update."
+          },
+          "content": {
+            "type": "string",
+            "description": "The new content for the HTML element."
+          }
+        },
+        "additionalProperties": false
+      },
+      "delete_element": {
+        "type": "object",
+        "description": "Delete an HTML element. The server removes the element, updates all clients, and commits the change.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The unique identifier for the HTML element to be deleted."
+          }
+        },
+        "additionalProperties": false
+      },
+      "update_js": {
+        "type": "object",
+        "description": "Update the JavaScript file used by the web page. The update is pushed to all clients and the change is committed to version control.",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The new JavaScript code to be used by the web page."
+          }
+        },
+        "additionalProperties": false
+      },
+      "update_css": {
+        "type": "object",
+        "description": "Update the CSS file used by the web page. The update is broadcasted to all clients and committed to version control.",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The new CSS styles to be applied to the web page."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "oneOf": [
+      { "required": ["add_element"] },
+      { "required": ["update_element"] },
+      { "required": ["delete_element"] },
+      { "required": ["update_js"] },
+      { "required": ["update_css"] }
+    ],
+    "additionalProperties": false
+  }
+}

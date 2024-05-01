@@ -1,0 +1,14 @@
+{
+  "description": "Run NodeJS code deduced from human language expressed by the user input. The code is executed in a wm subprocess to isolate it from the core system. Allowed native Node functions consist of math, type conversion, data structure, iterative, string, functional, and miscellaneous functions like print, type, isinstance, and import. You may use 'sessions' state variable to store data between requests. For a guessing game, you can store the secret number in the session state with math random function.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "description": "NodeJS code to evaluate. Code expression is evaluated by exec Node function, which does not return the results. Thus, console.log the result. Output will go to the buffer and be handled by the program. Newlines in the code must be escaped with \\n. Always escape single quotes in literals correctly! Use non-blocking code only because user cannot interact with the code execution. For instance, readline input cannot be used in the code. You can refer to a global state object called 'session' to store data between code executions."
+      }
+    },
+    "required": ["code"],
+    "additionalProperties": false
+  }
+}

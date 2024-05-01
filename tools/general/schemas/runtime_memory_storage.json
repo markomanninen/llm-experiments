@@ -1,0 +1,54 @@
+{
+  "description": "Handles runtime memory data dictionary entry operations such as set, get, and delete.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "description": "Type of operation to perform.",
+        "enum": ["set", "get", "del"]
+      },
+      "key": {
+        "type": "string",
+        "description": "Data property key."
+      },
+      "value": {
+        "type": "mixed",
+        "description": "Data property value, required for 'set' operations."
+      }
+    },
+    "required": ["operation", "key"],
+    "dependencies": {
+      "operation": {
+        "oneOf": [
+          {
+            "properties": {
+              "operation": {
+                "const": "set"
+              },
+              "value": {
+                "type": "mixed"
+              }
+            },
+            "required": ["value"]
+          },
+          {
+            "properties": {
+              "operation": {
+                "const": "get"
+              }
+            }
+          },
+          {
+            "properties": {
+              "operation": {
+                "const": "del"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "additionalProperties": false
+  }
+}

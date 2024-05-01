@@ -1,0 +1,328 @@
+{
+  "description": "Git Operations API",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "commits": {
+        "description": "Operations for working with commits.",
+        "type": "object",
+        "properties": {
+          "list": {
+            "description": "List commits in the repository.",
+            "type": "object",
+            "properties": {
+              "author": {
+                "type": "string",
+                "description": "Filter commits by author."
+              },
+              "since": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Start date for filtering commits."
+              },
+              "until": {
+                "type": "string",
+                "format": "date-time",
+                "description": "End date for filtering commits."
+              }
+            }
+          },
+          "create": {
+            "description": "Create a new commit.",
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "The commit message."
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "List of files to commit."
+              }
+            },
+            "required": ["message", "files"]
+          },
+          "amend": {
+            "description": "Amend an existing commit.",
+            "type": "object",
+            "properties": {
+              "commitHash": {
+                "type": "string",
+                "description": "The hash of the commit to amend."
+              },
+              "message": {
+                "type": "string",
+                "description": "New commit message."
+              }
+            },
+            "required": ["commitHash", "message"]
+          }
+        },
+        "oneOf": [
+          { "required": ["list"] },
+          { "required": ["create"] },
+          { "required": ["amend"] }
+        ],
+        "additionalProperties": false
+      },
+      "branches": {
+        "description": "Operations for working with branches.",
+        "type": "object",
+        "properties": {
+          "list": {
+            "description": "List branches in the repository.",
+            "type": "object"
+          },
+          "create": {
+            "description": "Create a new branch.",
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the new branch."
+              },
+              "startPoint": {
+                "type": "string",
+                "description": "The commit or branch name to start from."
+              }
+            },
+            "required": ["name"]
+          },
+          "delete": {
+            "description": "Delete a branch.",
+            "type": "object",
+            "properties": {
+              "branchName": {
+                "type": "string",
+                "description": "Name of the branch to delete."
+              }
+            },
+            "required": ["branchName"]
+          }
+        },
+        "oneOf": [
+          { "required": ["list"] },
+          { "required": ["create"] },
+          { "required": ["delete"] }
+        ],
+        "additionalProperties": false
+      },
+      "tags": {
+        "description": "Operations for working with tags.",
+        "type": "object",
+        "properties": {
+          "list": {
+            "description": "List tags in the repository.",
+            "type": "object"
+          },
+          "create": {
+            "description": "Create a new tag.",
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the tag."
+              },
+              "commit": {
+                "type": "string",
+                "description": "The commit to tag."
+              }
+            },
+            "required": ["name", "commit"]
+          },
+          "delete": {
+            "description": "Delete a tag.",
+            "type": "object",
+            "properties": {
+              "tagName": {
+                "type": "string",
+                "description": "Name of the tag to delete."
+              }
+            },
+            "required": ["tagName"]
+          }
+        },
+        "oneOf": [
+          { "required": ["list"] },
+          { "required": ["create"] },
+          { "required": ["delete"] }
+        ],
+        "additionalProperties": false
+      },
+      "diffs": {
+        "description": "Operations for working with diffs.",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "The starting commit hash, branch, or tag to compare from."
+          },
+          "to": {
+            "type": "string",
+            "description": "The ending commit hash, branch, or tag to compare to."
+          }
+        },
+        "required": ["from", "to"],
+        "additionalProperties": false
+      },
+      "logs": {
+        "description": "Operations for working with logs.",
+        "type": "object",
+        "properties": {
+          "commitHash": {
+            "type": "string",
+            "description": "The commit hash to get logs for."
+          },
+          "author": {
+            "type": "string",
+            "description": "Filter logs by author."
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Start date for logs."
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "End date for logs."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": {
+        "description": "Get the status of the repository.",
+        "type": "object"
+      },
+      "stash": {
+        "description": "Operations for working with stashes.",
+        "type": "object",
+        "properties": {
+          "list": {
+            "description": "List stashes in the repository.",
+            "type": "object"
+          },
+          "create": {
+            "description": "Create a new stash.",
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "A description of the stash."
+              }
+            }
+          },
+          "apply": {
+            "description": "Apply a stash.",
+            "type": "object",
+            "properties": {
+              "stashId": {
+                "type": "string",
+                "description": "The identifier of the stash to apply."
+              }
+            },
+            "required": ["stashId"]
+          },
+          "delete": {
+            "description": "Delete a stash.",
+            "type": "object",
+            "properties": {
+              "stashId": {
+                "type": "string",
+                "description": "The identifier of the stash to delete."
+              }
+            },
+            "required": ["stashId"]
+          }
+        },
+        "oneOf": [
+          { "required": ["list"] },
+          { "required": ["create"] },
+          { "required": ["apply"] },
+          { "required": ["delete"] }
+        ],
+        "additionalProperties": false
+      },
+      "merge": {
+        "description": "Merge a branch into the current branch.",
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "string",
+            "description": "Name of the branch to merge into the current branch."
+          }
+        },
+        "required": ["branch"],
+        "additionalProperties": false
+      },
+      "rebase": {
+        "description": "Rebase the current branch onto another branch.",
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "string",
+            "description": "Name of the branch to rebase onto the current branch."
+          }
+        },
+        "required": ["branch"],
+        "additionalProperties": false
+      },
+      "remote_operations": {
+        "description": "Operations for working with remotes.",
+        "type": "object",
+        "properties": {
+          "clone": {
+            "description": "Clone a repository.",
+            "type": "object",
+            "properties": {
+              "repositoryUrl": {
+                "type": "string",
+                "description": "URL of the repository to clone."
+              },
+              "directory": {
+                "type": "string",
+                "description": "Directory to clone into."
+              }
+            },
+            "required": ["repositoryUrl"]
+          },
+          "fetch": {
+            "description": "Fetch changes from a remote repository.",
+            "type": "object"
+          },
+          "pull": {
+            "description": "Pull changes from a remote repository.",
+            "type": "object"
+          },
+          "push": {
+            "description": "Push changes to a remote repository.",
+            "type": "object"
+          }
+        },
+        "oneOf": [
+          { "required": ["clone"] },
+          { "required": ["fetch"] },
+          { "required": ["pull"] },
+          { "required": ["push"] }
+        ],
+        "additionalProperties": false
+      }
+    },
+    "oneOf": [
+      { "required": ["commits"] },
+      { "required": ["branches"] },
+      { "required": ["tags"] },
+      { "required": ["diffs"] },
+      { "required": ["logs"] },
+      { "required": ["status"] },
+      { "required": ["stash"] },
+      { "required": ["merge"] },
+      { "required": ["rebase"] },
+      { "required": ["remote_operations"] }
+    ],
+    "additionalProperties": false
+  }
+}

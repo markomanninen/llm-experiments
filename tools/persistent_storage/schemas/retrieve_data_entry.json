@@ -1,0 +1,19 @@
+{
+  "description": "Retrieve data entry/entries by key or key_group name corresponding given value.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "field": {
+        "type": "string",
+        "description": "Data field name, key or key_group.",
+        "enum": ["key", "key_group"]
+      },
+      "value": {
+        "type": "string",
+        "description": "Data field value, key or key_group."
+      }
+    },
+    "required": ["field", "value"],
+    "additionalProperties": false
+  }
+}

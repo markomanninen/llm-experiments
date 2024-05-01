@@ -1,0 +1,23 @@
+{
+  "description": "You may control key-value properties such as user profile data in the storage with the upsert_data_entry function calling tool and arguments defined in the following schema. Prompts in human language, such as 'Update my location in user settings: Oberon.' would utilize these tools. Insert or update data entry including key, value, key_group (user_profile, general).",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string",
+        "description": "Data property key."
+      },
+      "value": {
+        "type": "string",
+        "description": "Data property value."
+      },
+      "key_group": {
+        "type": "string",
+        "description": "Data key group property value.",
+        "enum": ["user_profile", "general"]
+      }
+    },
+    "required": ["key", "value", "key_group"],
+    "additionalProperties": false
+  }
+}

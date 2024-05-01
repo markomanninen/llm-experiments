@@ -1,0 +1,27 @@
+{
+  "description": "A simple Pokemon inspired game variation from rock-paper-scissors where players choose between fire, water, or grass. Fire beats grass, water beats fire, and grass beats water. The game pits the player against the computer in a series of rounds, with the objective being to outguess the opponent and score points based on the results of each round. Alternatively, this can be played as rock_paper_scissors game with the same rules and arguments.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "init_game": {
+        "type": "boolean",
+        "description": "Initializes a new game, resetting scores to zero. Set to true to start a new game. Responds with a message indicating that a new game has started."
+      },
+      "player_move": {
+        "type": "string",
+        "enum": ["fire", "water", "grass"],
+        "description": "The player's choice for a single round. Valid choices are 'fire', 'water', or 'grass'. The game responds with the result of the round, the choice made by the computer, and an updated score."
+      },
+      "get_score": {
+        "type": "boolean",
+        "description": "Retrieves the current score of the game. Set to true to receive the current score. The response includes the player's score and the computer's score."
+      }
+    },
+    "oneOf": [
+      { "required": ["init_game"] },
+      { "required": ["player_move"] },
+      { "required": ["get_score"] }
+    ],
+    "additionalProperties": false
+  }
+}

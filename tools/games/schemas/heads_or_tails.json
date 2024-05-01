@@ -1,0 +1,14 @@
+{
+  "description": "A simple head-or-tails game where the user must guess 'heads' or 'tails'. The game keeps track of the user's score.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "user_input": {
+        "type": "string",
+        "description": "The user must say 'heads' or 'tails'. The game keeps track of the user's score."
+      }
+    },
+    "required": ["user_input"],
+    "additionalProperties": false
+  }
+}
