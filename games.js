@@ -1,23 +1,23 @@
 // Description: Implementations of various games using JavaScript functions and classes.
 
-function createPingPongGame() {
+// TODO: Generalize to any boolean choice game:
+// - Create a class with a constructor that takes an array of choices such as:
+// truth, lie or heads, tails
+function createHeadsOrTailsGame() {
     let score = 0;
-    let pongCount = 0;
     // Randomly decide between 'ping' and 'pong'
-    let expectedInput = Math.random() < 0.5 ? "ping" : "pong";
+    let expectedInput = Math.random() < 0.5 ? "heads" : "tails";
 
     return function (userInput) {
         let normalizedInput = userInput.toLowerCase();
         if (normalizedInput === expectedInput) {
             score++;
-            if (expectedInput === "pong") {
-                pongCount++;
-            }
-            console.log(`Correct! Expected ${expectedInput}. Your score is ${score} and the pong count is ${pongCount}`);
+            const data = { success: true, message: `Correct! Expected ${expectedInput}. Your score is ${score}.` };
             // Randomly decide next expected input
-            expectedInput = Math.random() < 0.5 ? "ping" : "pong";
+            expectedInput = Math.random() < 0.5 ? "heads" : "tails";
+            return data;
         } else {
-            console.log(`Incorrect! Expected ${expectedInput}. Please try again.`);
+            return { success: false, message: `Incorrect! Expected ${expectedInput}. Please try again.` };
         }
     };
 }
@@ -272,7 +272,7 @@ function createNumberGuessingGame(min = 1, max = 100, guesses = 7) {
 }
 
 module.exports = {
-    createPingPongGame,
+    createHeadsOrTailsGame,
     createHangmanGame,
     createFireWaterGrassGame,
     createRockPaperScissorsGame,
