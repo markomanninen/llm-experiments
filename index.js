@@ -604,7 +604,7 @@ async function gitOperationsDispatcher(operationData) {
     try {
         let response;
         switch (operation) {
-            
+
             case 'git_commits':
                 if (params.list) {
                     const queryParams = new URLSearchParams(params.list);
@@ -624,7 +624,16 @@ async function gitOperationsDispatcher(operationData) {
                         headers: headers,
                         body: JSON.stringify({ message: params.amend.message })
                     });
+                
                 }
+                break;
+            
+            case 'git_log':
+                const queryParams = new URLSearchParams(params);
+                response = await fetch(`${endpoint}/commits?${queryParams.toString()}`, {
+                    method: 'GET',
+                    headers: headers
+                });
                 break;
 
             case 'git_branches':
@@ -675,7 +684,7 @@ async function gitOperationsDispatcher(operationData) {
                 });
                 break;
 
-            case 'git_logs':
+            case 'git_log':
                 const queryParamsLogs = new URLSearchParams(params);
                 response = await fetch(`${endpoint}/logs?${queryParamsLogs.toString()}`, {
                     method: 'GET',
@@ -772,7 +781,7 @@ const functionToolCallbacks = {
     "git_branches": (kwargs) => gitOperationsDispatcher({ git_branches: kwargs }),
     "git_commits": (kwargs) => gitOperationsDispatcher({ git_commits: kwargs }),
     "git_diffs": (kwargs) => gitOperationsDispatcher({ git_diffs: kwargs }),
-    "git_logs": (kwargs) => gitOperationsDispatcher({ git_logs: kwargs }),
+    "git_log": (kwargs) => gitOperationsDispatcher({ git_log: kwargs }),
     "git_merge": (kwargs) => gitOperationsDispatcher({ git_merge: kwargs }),
     "git_rebase": (kwargs) => gitOperationsDispatcher({ git_rebase: kwargs }),
     "git_remote_operations": (kwargs) => gitOperationsDispatcher({ git_remote_operations: kwargs }),

@@ -7,6 +7,10 @@
         "description": "List commits in the repository.",
         "type": "object",
         "properties": {
+          "commitHash": {
+            "type": "string",
+            "description": "The commit hash to get logs for."
+          },
           "author": {
             "type": "string",
             "description": "Filter commits by author."
