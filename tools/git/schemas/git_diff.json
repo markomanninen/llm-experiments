@@ -1,5 +1,5 @@
 {
-  "description": "Operations for working with diffs.",
+  "description": "Operations for working with diff.",
   "arguments": {
     "type": "object",
     "properties": {

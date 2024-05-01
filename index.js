@@ -676,7 +676,7 @@ async function gitOperationsDispatcher(operationData) {
                 }
                 break;
 
-            case 'git_diffs':
+            case 'git_diff':
                 const queryParamsDiff = new URLSearchParams({ from: params.from, to: params.to });
                 response = await fetch(`${endpoint}/diffs?${queryParamsDiff.toString()}`, {
                     method: 'GET',
@@ -742,7 +742,7 @@ async function gitOperationsDispatcher(operationData) {
                 break;
 
             case 'git_remote_operations':
-                const subOperation = Object.keys(params)[0]; // Example: clone, fetch, pull, push
+                const subOperation = Object.keys(params)[0]; // clone, fetch, pull, push
                 response = await fetch(`${endpoint}/${subOperation}`, {
                     method: 'POST',
                     headers: headers,
@@ -780,7 +780,7 @@ const functionToolCallbacks = {
     "dynamic_content_management": dynamicContentDispatcher,
     "git_branches": (kwargs) => gitOperationsDispatcher({ git_branches: kwargs }),
     "git_commits": (kwargs) => gitOperationsDispatcher({ git_commits: kwargs }),
-    "git_diffs": (kwargs) => gitOperationsDispatcher({ git_diffs: kwargs }),
+    "git_diff": (kwargs) => gitOperationsDispatcher({ git_diff: kwargs }),
     "git_log": (kwargs) => gitOperationsDispatcher({ git_log: kwargs }),
     "git_merge": (kwargs) => gitOperationsDispatcher({ git_merge: kwargs }),
     "git_rebase": (kwargs) => gitOperationsDispatcher({ git_rebase: kwargs }),
