@@ -1,4 +1,6 @@
-const { toolSchemas } = require('./schemas');
+//const { toolSchemas } = require('./schemas');
+
+const { tools: toolSchemas } = require('./tools/index.js');
 
 const collectSchemas = (toolArgs, toolSchemas) => {
     let selectedSchemas = {};
