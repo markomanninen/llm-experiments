@@ -1,0 +1,44 @@
+{
+  "description": "Operations for working with branches.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "list": {
+        "description": "List branches in the repository.",
+        "type": "object"
+      },
+      "create": {
+        "description": "Create a new branch.",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the new branch."
+          },
+          "startPoint": {
+            "type": "string",
+            "description": "The commit or branch name to start from."
+          }
+        },
+        "required": ["name"]
+      },
+      "delete": {
+        "description": "Delete a branch.",
+        "type": "object",
+        "properties": {
+          "branchName": {
+            "type": "string",
+            "description": "Name of the branch to delete."
+          }
+        },
+        "required": ["branchName"]
+      }
+    },
+    "oneOf": [
+      { "required": ["list"] },
+      { "required": ["create"] },
+      { "required": ["delete"] }
+    ],
+    "additionalProperties": false
+  }
+}

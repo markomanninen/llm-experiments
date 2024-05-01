@@ -1,0 +1,18 @@
+{
+  "description": "Operations for working with diffs.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "from": {
+        "type": "string",
+        "description": "The starting commit hash, branch, or tag to compare from."
+      },
+      "to": {
+        "type": "string",
+        "description": "The ending commit hash, branch, or tag to compare to."
+      }
+    },
+    "required": ["from", "to"],
+    "additionalProperties": false
+  }
+}

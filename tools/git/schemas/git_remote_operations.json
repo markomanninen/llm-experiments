@@ -1,0 +1,42 @@
+{
+  "description": "Operations for working with remotes.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "clone": {
+        "description": "Clone a repository.",
+        "type": "object",
+        "properties": {
+          "repositoryUrl": {
+            "type": "string",
+            "description": "URL of the repository to clone."
+          },
+          "directory": {
+            "type": "string",
+            "description": "Directory to clone into."
+          }
+        },
+        "required": ["repositoryUrl"]
+      },
+      "fetch": {
+        "description": "Fetch changes from a remote repository.",
+        "type": "object"
+      },
+      "pull": {
+        "description": "Pull changes from a remote repository.",
+        "type": "object"
+      },
+      "push": {
+        "description": "Push changes to a remote repository.",
+        "type": "object"
+      }
+    },
+    "oneOf": [
+      { "required": ["clone"] },
+      { "required": ["fetch"] },
+      { "required": ["pull"] },
+      { "required": ["push"] }
+    ],
+    "additionalProperties": false
+  }
+}

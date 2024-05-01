@@ -1,0 +1,14 @@
+{
+  "description": "Merge a branch into the current branch.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "branch": {
+        "type": "string",
+        "description": "Name of the branch to merge into the current branch."
+      }
+    },
+    "required": ["branch"],
+    "additionalProperties": false
+  }
+}

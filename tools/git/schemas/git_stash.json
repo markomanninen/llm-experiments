@@ -1,0 +1,51 @@
+{
+  "description": "Operations for working with stashes.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "list": {
+        "description": "List stashes in the repository.",
+        "type": "object"
+      },
+      "create": {
+        "description": "Create a new stash.",
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "A description of the stash."
+          }
+        }
+      },
+      "apply": {
+        "description": "Apply a stash.",
+        "type": "object",
+        "properties": {
+          "stashId": {
+            "type": "string",
+            "description": "The identifier of the stash to apply."
+          }
+        },
+        "required": ["stashId"]
+      },
+      "delete": {
+        "description": "Delete a stash.",
+        "type": "object",
+        "properties": {
+          "stashId": {
+            "type": "string",
+            "description": "The identifier of the stash to delete."
+          }
+        },
+        "required": ["stashId"]
+      }
+    },
+    "oneOf": [
+      { "required": ["list"] },
+      { "required": ["create"] },
+      { "required": ["apply"] },
+      { "required": ["delete"] }
+    ],
+    "additionalProperties": false
+  }
+}

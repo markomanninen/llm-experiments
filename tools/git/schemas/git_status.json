@@ -1,0 +1,6 @@
+{
+  "description": "Get the status of the repository",
+  "arguments": {
+    "type": "object"
+  }
+}

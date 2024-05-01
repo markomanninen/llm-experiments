@@ -604,7 +604,8 @@ async function gitOperationsDispatcher(operationData) {
     try {
         let response;
         switch (operation) {
-            case 'commits':
+            
+            case 'git_commits':
                 if (params.list) {
                     const queryParams = new URLSearchParams(params.list);
                     response = await fetch(`${endpoint}/commits?${queryParams.toString()}`, {
@@ -626,7 +627,7 @@ async function gitOperationsDispatcher(operationData) {
                 }
                 break;
 
-            case 'branches':
+            case 'git_branches':
                 if (params.list) {
                     response = await fetch(`${endpoint}/branches`, {
                         method: 'GET',
@@ -646,7 +647,7 @@ async function gitOperationsDispatcher(operationData) {
                 }
                 break;
 
-            case 'tags':
+            case 'git_tags':
                 if (params.list) {
                     response = await fetch(`${endpoint}/tags`, {
                         method: 'GET',
@@ -666,7 +667,7 @@ async function gitOperationsDispatcher(operationData) {
                 }
                 break;
 
-            case 'diffs':
+            case 'git_diffs':
                 const queryParamsDiff = new URLSearchParams({ from: params.from, to: params.to });
                 response = await fetch(`${endpoint}/diffs?${queryParamsDiff.toString()}`, {
                     method: 'GET',
@@ -674,7 +675,7 @@ async function gitOperationsDispatcher(operationData) {
                 });
                 break;
 
-            case 'logs':
+            case 'git_logs':
                 const queryParamsLogs = new URLSearchParams(params);
                 response = await fetch(`${endpoint}/logs?${queryParamsLogs.toString()}`, {
                     method: 'GET',
@@ -682,14 +683,14 @@ async function gitOperationsDispatcher(operationData) {
                 });
                 break;
 
-            case 'status':
+            case 'git_status':
                 response = await fetch(`${endpoint}/status`, {
                     method: 'GET',
                     headers: headers
                 });
                 break;
 
-            case 'stash':
+            case 'git_stash':
                 if (params.list) {
                     response = await fetch(`${endpoint}/stash`, {
                         method: 'GET',
@@ -715,7 +716,7 @@ async function gitOperationsDispatcher(operationData) {
                 }
                 break;
 
-            case 'merge':
+            case 'git_merge':
                 response = await fetch(`${endpoint}/merge`, {
                     method: 'POST',
                     headers: headers,
@@ -723,7 +724,7 @@ async function gitOperationsDispatcher(operationData) {
                 });
                 break;
 
-            case 'rebase':
+            case 'git_rebase':
                 response = await fetch(`${endpoint}/rebase`, {
                     method: 'POST',
                     headers: headers,
@@ -731,7 +732,7 @@ async function gitOperationsDispatcher(operationData) {
                 });
                 break;
 
-            case 'remote_operations':
+            case 'git_remote_operations':
                 const subOperation = Object.keys(params)[0]; // Example: clone, fetch, pull, push
                 response = await fetch(`${endpoint}/${subOperation}`, {
                     method: 'POST',
@@ -768,7 +769,16 @@ const functionToolCallbacks = {
     "upsert_data_entry": upsertDataEntry,
     "retrieve_data_entry": retrieveDataEntry,
     "dynamic_content_management": dynamicContentDispatcher,
-    "git_operations_api": gitOperationsDispatcher,
+    "git_branches": (kwargs) => gitOperationsDispatcher({ git_branches: kwargs }),
+    "git_commits": (kwargs) => gitOperationsDispatcher({ git_commits: kwargs }),
+    "git_diffs": (kwargs) => gitOperationsDispatcher({ git_diffs: kwargs }),
+    "git_logs": (kwargs) => gitOperationsDispatcher({ git_logs: kwargs }),
+    "git_merge": (kwargs) => gitOperationsDispatcher({ git_merge: kwargs }),
+    "git_rebase": (kwargs) => gitOperationsDispatcher({ git_rebase: kwargs }),
+    "git_remote_operations": (kwargs) => gitOperationsDispatcher({ git_remote_operations: kwargs }),
+    "git_stash": (kwargs) => gitOperationsDispatcher({ git_stash: kwargs }),
+    "git_status": (kwargs) => gitOperationsDispatcher({ git_status: kwargs }),
+    "git_tags": (kwargs) => gitOperationsDispatcher({ git_tags: kwargs }),
     "runtime_memory_storage": runtimeMemoryDispatcher
 };
 

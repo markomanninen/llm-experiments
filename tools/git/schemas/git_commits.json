@@ -1,0 +1,67 @@
+{
+  "description": "Git operations for working with commits.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "list": {
+        "description": "List commits in the repository.",
+        "type": "object",
+        "properties": {
+          "author": {
+            "type": "string",
+            "description": "Filter commits by author."
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Start date for filtering commits."
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "End date for filtering commits."
+          }
+        }
+      },
+      "create": {
+        "description": "Create a new commit.",
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The commit message."
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of files to commit."
+          }
+        },
+        "required": ["message", "files"]
+      },
+      "amend": {
+        "description": "Amend an existing commit.",
+        "type": "object",
+        "properties": {
+          "commitHash": {
+            "type": "string",
+            "description": "The hash of the commit to amend."
+          },
+          "message": {
+            "type": "string",
+            "description": "New commit message."
+          }
+        },
+        "required": ["commitHash", "message"]
+      }
+    },
+    "oneOf": [
+      { "required": ["list"] },
+      { "required": ["create"] },
+      { "required": ["amend"] }
+    ],
+    "additionalProperties": false
+  }
+}

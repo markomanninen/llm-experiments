@@ -1,0 +1,44 @@
+{
+  "description": "Operations for working with tags.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "list": {
+        "description": "List tags in the repository.",
+        "type": "object"
+      },
+      "create": {
+        "description": "Create a new tag.",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the tag."
+          },
+          "commit": {
+            "type": "string",
+            "description": "The commit to tag."
+          }
+        },
+        "required": ["name", "commit"]
+      },
+      "delete": {
+        "description": "Delete a tag.",
+        "type": "object",
+        "properties": {
+          "tagName": {
+            "type": "string",
+            "description": "Name of the tag to delete."
+          }
+        },
+        "required": ["tagName"]
+      }
+    },
+    "oneOf": [
+      { "required": ["list"] },
+      { "required": ["create"] },
+      { "required": ["delete"] }
+    ],
+    "additionalProperties": false
+  }
+}

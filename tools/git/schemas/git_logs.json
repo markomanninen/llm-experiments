@@ -1,0 +1,27 @@
+{
+  "description": "Operations for working with logs.",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "commitHash": {
+        "type": "string",
+        "description": "The commit hash to get logs for."
+      },
+      "author": {
+        "type": "string",
+        "description": "Filter logs by author."
+      },
+      "since": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Start date for logs."
+      },
+      "until": {
+        "type": "string",
+        "format": "date-time",
+        "description": "End date for logs."
+      }
+    },
+    "additionalProperties": false
+  }
+}
