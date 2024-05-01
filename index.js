@@ -57,18 +57,19 @@ const jsonStorage = new JsonStorage("persistent.json");
 const runtimeMemoryStorage = new RuntimeMemoryStorage();
 
 const {
-    createPingPongGame,
     createHangmanGame,
     createFireWaterGrassGame,
     createRockPaperScissorsGame,
-    createNumberGuessingGame
+    createNumberGuessingGame,
+    createHeadsOrTailsGame
 } = require('./games');
 
 const hangmanGame = createHangmanGame();
-const pingPongGame = createPingPongGame();
+const headsOrTailsGame = createHeadsOrTailsGame();
 const fireWaterGrassGame = createFireWaterGrassGame();
 const rockPaperScissorsGame = createRockPaperScissorsGame();
-let numberGuessingGame = null; //createNumberGuessingGame();
+// createNumberGuessingGame() will be constructed for each game
+let numberGuessingGame = null;
 
 const { argv } = require('./args');
 
@@ -359,16 +360,16 @@ const numberGuessing = (kwargs) => {
     }
 };
 
-const pingPong = (kwargs) => {
+const headsOrTails = (kwargs) => {
     try {
         if (kwargs.user_input) {
-            return pingPongGame(kwargs.user_input.trim());
+            return headsOrTailsGame(kwargs.user_input.trim());
         } else {
             return { success: false, message: "No valid arguments provided for the game." };
         }
     } catch (error) {
-        console.error("Error in ping pong game:", error);
-        return { success: false, message: "An error occurred while executing the ping-pong game." };
+        console.error("Error in heads-or-tails game:", error);
+        return { success: false, message: "An error occurred while executing the heads-or-tails game." };
     }
 };
 
@@ -377,6 +378,10 @@ const hangman = (kwargs) => {
         if (kwargs.init_word) {
             // Initialize the game
             const word = kwargs.init_word.trim().toLowerCase();
+            // If word has any special characters, return error
+            if (word.match(/[^a-z]/)) {
+                return { success: false, message: "Invalid word. Please provide a word with only letters." };
+            }
             return hangmanGame.init(word);
         }
         else if (kwargs.guess_letter) {
@@ -584,16 +589,186 @@ async function dynamicContentDispatcher(operationData) {
     }
 }
 
+async function gitOperationsDispatcher(operationData) {
+    const endpoint = 'http://localhost:3000/api'; // Base URL of your server
+    const headers = { 'Content-Type': 'application/json' };
+
+    // Validate operationData
+    if (!operationData || !Object.keys(operationData).length) {
+        return { success: false, message: "No operation specified." };
+    }
+
+    const operation = Object.keys(operationData)[0];
+    const params = operationData[operation];
+
+    try {
+        let response;
+        switch (operation) {
+            case 'commits':
+                if (params.list) {
+                    const queryParams = new URLSearchParams(params.list);
+                    response = await fetch(`${endpoint}/commits?${queryParams.toString()}`, {
+                        method: 'GET',
+                        headers: headers
+                    });
+                } else if (params.create) {
+                    response = await fetch(`${endpoint}/commit`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(params.create)
+                    });
+                } else if (params.amend) {
+                    response = await fetch(`${endpoint}/commit/${params.amend.commitHash}`, {
+                        method: 'PATCH',
+                        headers: headers,
+                        body: JSON.stringify({ message: params.amend.message })
+                    });
+                }
+                break;
+
+            case 'branches':
+                if (params.list) {
+                    response = await fetch(`${endpoint}/branches`, {
+                        method: 'GET',
+                        headers: headers
+                    });
+                } else if (params.create) {
+                    response = await fetch(`${endpoint}/branches`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(params.create)
+                    });
+                } else if (params.delete) {
+                    response = await fetch(`${endpoint}/branches/${params.delete.branchName}`, {
+                        method: 'DELETE',
+                        headers: headers
+                    });
+                }
+                break;
+
+            case 'tags':
+                if (params.list) {
+                    response = await fetch(`${endpoint}/tags`, {
+                        method: 'GET',
+                        headers: headers
+                    });
+                } else if (params.create) {
+                    response = await fetch(`${endpoint}/tags`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify(params.create)
+                    });
+                } else if (params.delete) {
+                    response = await fetch(`${endpoint}/tags/${params.delete.tagName}`, {
+                        method: 'DELETE',
+                        headers: headers
+                    });
+                }
+                break;
+
+            case 'diffs':
+                const queryParamsDiff = new URLSearchParams({ from: params.from, to: params.to });
+                response = await fetch(`${endpoint}/diffs?${queryParamsDiff.toString()}`, {
+                    method: 'GET',
+                    headers: headers
+                });
+                break;
+
+            case 'logs':
+                const queryParamsLogs = new URLSearchParams(params);
+                response = await fetch(`${endpoint}/logs?${queryParamsLogs.toString()}`, {
+                    method: 'GET',
+                    headers: headers
+                });
+                break;
+
+            case 'status':
+                response = await fetch(`${endpoint}/status`, {
+                    method: 'GET',
+                    headers: headers
+                });
+                break;
+
+            case 'stash':
+                if (params.list) {
+                    response = await fetch(`${endpoint}/stash`, {
+                        method: 'GET',
+                        headers: headers
+                    });
+                } else if (params.create) {
+                    response = await fetch(`${endpoint}/stash`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({ message: params.create.message })
+                    });
+                } else if (params.apply) {
+                    response = await fetch(`${endpoint}/stash/apply`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({ stashId: params.apply.stashId })
+                    });
+                } else if (params.delete) {
+                    response = await fetch(`${endpoint}/stash/${params.delete.stashId}`, {
+                        method: 'DELETE',
+                        headers: headers
+                    });
+                }
+                break;
+
+            case 'merge':
+                response = await fetch(`${endpoint}/merge`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ branch: params.branch })
+                });
+                break;
+
+            case 'rebase':
+                response = await fetch(`${endpoint}/rebase`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ branch: params.branch })
+                });
+                break;
+
+            case 'remote_operations':
+                const subOperation = Object.keys(params)[0]; // Example: clone, fetch, pull, push
+                response = await fetch(`${endpoint}/${subOperation}`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(params[subOperation])
+                });
+                break;
+
+            default:
+                return { success: false, message: "Invalid operation specified." };
+        }
+
+        // Check response status and parse JSON
+        if (response.ok) {
+            const data = await response.json();
+            return { success: true, data };
+        } else {
+            console.error(`Failed response from server: ${response.status}`, await response.json());
+            return { success: false, message: `Server responded with status: ${response.status}` };
+        }
+    } catch (error) {
+        console.error('Error with API request:', error);
+        return { success: false, message: "Failed to execute API request.", error };
+    }
+}
+
 const functionToolCallbacks = {
     "hangman": hangman,
     "nodejs_code_runner": nodeCodeRunner,
-    "number_guessing_game": numberGuessing,
-    "ping_pong_game": pingPong,
+    "number_guessing": numberGuessing,
+    "heads_or_tails": headsOrTails,
     "fire_water_grass": (kwargs) => gameDispatcher(fireWaterGrassGame, kwargs),
     "rock_paper_scissors": (kwargs) => gameDispatcher(rockPaperScissorsGame, kwargs),
     "upsert_data_entry": upsertDataEntry,
     "retrieve_data_entry": retrieveDataEntry,
     "dynamic_content_management": dynamicContentDispatcher,
+    "git_operations_api": gitOperationsDispatcher,
     "runtime_memory_storage": runtimeMemoryDispatcher
 };
 
