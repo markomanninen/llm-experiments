@@ -6,6 +6,7 @@ const path = require('path');
 
 // Import routes configuration
 const configureRoutes = require('./routes');
+const configureRoutesGit = require('./routes/git');
 
 const app = express();
 const server = http.createServer(app);
@@ -43,6 +44,7 @@ app.use(express.static(path.join(__dirname, 'public'))); // Serve static files f
 
 // Initialize and configure routes
 configureRoutes(app, io);
+configureRoutesGit(app, io);
 
 // Handle WebSocket connections
 io.on('connection', (socket) => {
