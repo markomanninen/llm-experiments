@@ -51,18 +51,13 @@ async function revertToCommit(commitHash) {
 async function getDiffs(from, to, file) {
     try {
         let diffOutput;
-        console.log([from, to, file]);
         if ((from || to) && file) {
-            console.log('1');
             diffOutput = await git.diff([`${from}..${to}`, '--', file]);
         } else if (file) {
-            console.log('2');
             diffOutput = await git.diff([file]);
         } else if ((from || to)) {
-            console.log('3');
             diffOutput = await git.diff([`${from}..${to}`]);
         } else {
-            console.log('4');
             diffOutput = await git.diff();
         }
         return diffOutput;

@@ -602,7 +602,7 @@ async function gitOperationsDispatcher(operationData) {
     const params = operationData[operation];
 
     try {
-        let response;
+        let response = {status: 0, ok: false};
         switch (operation) {
 
             case 'git_add':
@@ -655,7 +655,17 @@ async function gitOperationsDispatcher(operationData) {
                         headers: headers,
                         body: JSON.stringify({ message: params.amend.message })
                     });
-                
+                } else if (params.message) {
+                    response = await fetch(`${endpoint}/commit`, {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({ message: params.message })
+                    });
+                } else if (params.revert) {
+                    response = await fetch(`${endpoint}/commit/${params.revert.commitHash}`, {
+                        method: 'DELETE',
+                        headers: headers
+                    });
                 }
                 break;
             
@@ -807,6 +817,7 @@ const functionToolCallbacks = {
     "dynamic_content_management": dynamicContentDispatcher,
     "git_add": (kwargs) => gitOperationsDispatcher({ git_add: kwargs }),
     "git_branches": (kwargs) => gitOperationsDispatcher({ git_branches: kwargs }),
+    "git_commit": (kwargs) => gitOperationsDispatcher({ git_commits: kwargs }),
     "git_commits": (kwargs) => gitOperationsDispatcher({ git_commits: kwargs }),
     "git_diff": (kwargs) => gitOperationsDispatcher({ git_diff: kwargs }),
     "git_log": (kwargs) => gitOperationsDispatcher({ git_log: kwargs }),
@@ -1305,7 +1316,7 @@ async function spinRequest(prompt, slice = false) {
     return response;
 }
 
-async function toolRequest(prompt) {
+async function _toolRequest(prompt) {
 
     if (prompt == "") {
         return { error: "An error occurred: Empty prompt." };
@@ -1458,9 +1469,107 @@ async function processUserInput(input, withToolRequest = true) {
     }
 
     //console.log(`\x1B[38;5;45m${prompt}\x1B[0m`);
-    let toolRequestResult = withToolRequest && tools ? await toolRequest(prompt) : null;
-    await handleToolsResponse(toolRequestResult, prompt);
+    //let toolRequestResult = withToolRequest && tools ? await toolRequest(prompt) : null;
+    //await handleToolsResponse(toolRequestResult, prompt);
+
+    await mainRequest(prompt, withToolRequest && tools);
+
     showCursor();
+}
+
+async function withSpinner(callback) {
+    stopSpinner.isStopped = false;
+    const spinnerThread = spinner(stopSpinner);
+    await callback();
+    stopSpinner.isStopped = true;
+    clearInterval(spinnerThread);
+}
+
+
+function buildSystemPrompt() {
+    return getPrompt("systemPrompt", llmClient, model).
+        replace("<<assistant_persona>>", assistantPersonas[assistantPersona]).
+        replace(/<<model>>/g, `${assistantPersona} (${model})`).
+        replace("<<function_calling_tools>>", tools ? JSON.stringify(tools) : 'n/a').
+        // Secret vault can be used in non-streaming mode only
+        // It is hard to detect code block and remove them from the streaming output
+        //replace("<<miscallaneous_tools>>", (stream ? "n/a" : getPrompt("secretVaultPrompt", llmClient, model).
+        //replace("<<vault>>", JSON.stringify(secretVault)))).
+        // Start keeping the latest cumulative summary on the system prompt when message limit has been exceeded
+        replace("<<summary>>", (summary ? summary : 'n/a')).
+        replace("<<global_variables>>", JSON.stringify(variables));
+}
+
+async function toolRequest(prompt) {
+    // json=true gives quite many times 'failed_generation' errors in groq...
+    return await profileAsyncOperation(toolGenerators[llmClient], "toolRequest", prompt, system_message_metadata, 0.0, false);
+}
+
+async function request(prompt, slice = false) {
+    return await profileAsyncOperation(responseGenerators[llmClient], "request", prompt, buildSystemPrompt(), temperature, false, slice);
+}
+
+async function mainRequest(prompt, withTools = false) {
+
+    await withSpinner(async () => {
+
+        let slice = false;
+
+        if (withTools) {
+
+            slice = true;
+
+            const toolResponse = await toolRequest(prompt);
+
+            if (toolResponse.error) {
+                const errorMessage = `An error occurred in function call tool metadata retrieval: ${toolResponse.error}`;
+                console.error(errorMessage);
+                prompt = `${errorMessage}. Original prompt: ${prompt}`;
+            } else {
+
+                let extractedMetadata = extractAndParseJsonBlock(toolResponse.text, tools);
+
+                //console.log("extractedMetadata.result.tools", extractedMetadata.result.tools);
+
+                if (extractedMetadata.success && extractedMetadata.result.tools) {
+
+                    async function handleTools(functionCallingTools) {
+                        let userMessages = [];
+                        const metadataMessage = `Function calling tools set in queue: ${Object.keys(functionCallingTools).join(', ')}.`;
+                        appendAndGetMessages(metadataMessage, 'assistant');
+                        saveMessageToFile({ role: "system", content: metadataMessage });
+                        let i = 0;
+                        for (let item of functionCallingTools) {
+                            console.log(item);
+                            let toolName = item.tool;
+                            let toolArguments = item.arguments;
+                            if (toolName in functionToolCallbacks) {
+                                let functionCallResult = await functionToolCallbacks[toolName](toolArguments);
+                                userMessages.push(
+                                    `Tool ${i} executed with results: ${JSON.stringify(functionCallResult)}.`
+                                );
+                            } else {
+                                userMessages.push(`Tool ${i} not found: ${toolName}`);
+                            }
+                            i++;
+                        }
+                        return userMessages.join('\n');
+                    }
+                    
+                    //const metadataTopics = extractedMetadata.result.topics || [];
+                    //const metadataIntent = extractedMetadata.result.intent || "";
+                    prompt = await handleTools(extractedMetadata.result.tools);
+                    slice = false;
+                } else {
+                    //console.log("Tools not found.");
+                }
+            }
+        }
+
+        await handleResponse(await request(prompt, slice=slice));
+
+    });
+
 }
 
 // Function to process the CSV file and display histogram

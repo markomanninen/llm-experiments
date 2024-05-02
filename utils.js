@@ -10,7 +10,7 @@ const extractAndParseJsonBlock = (text, tools) => {
     let start_index = null;
     let results = [];
 
-    console.log(`Text to be JSON extracted: ${text}`);
+    //console.log(`Text to be JSON extracted: ${text}`);
 
     for (let index = 0; index < text.length; index++) {
         let char = text.charAt(index);
@@ -47,7 +47,7 @@ const extractAndParseJsonBlock = (text, tools) => {
             }
         }
     }
-    console.log(`Extracted JSON blocks: ${results}`);
+    //console.log(`Extracted JSON blocks: ${results}`);
     //const metadataFields = ['topics', 'intent'];
     // Optionally, check for other function calling tools if needed
     if (tools) {
