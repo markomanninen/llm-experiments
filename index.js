@@ -1563,6 +1563,8 @@ async function mainRequest(prompt, withTools = false) {
                             // If depth of the nested tools is more than five, skip the rest
                             if ((indexPrefix.split('.').length - 1) < 5) {
                                 if (subsequentTools) {
+                                    appendAndGetMessages(userMessages[userMessages.length-1], 'assistant');
+                                    saveMessageToFile({ role: "system", content: userMessages[userMessages.length-1] });
                                     const toolResponse = await toolRequest(`Generate JSON metadata for the subsequent tools based on the parent tool ${indexPrefix}${i} results.`);
                                     if (toolResponse.error) {
                                         const errorMessage = `An error occurred in function call tool metadata retrieval: ${toolResponse.error}`;
