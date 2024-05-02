@@ -27,13 +27,18 @@ const applicationName = "llm-experiments";
 
 // Set the path for the log file
 const logFilePath = path.join(__dirname, `${applicationName}.errors.log`);
+const infoFilePath = path.join(__dirname, `${applicationName}.info.log`);
 
-// Create a writable stream to the log file
+// Create a writable stream to the log files
 const errorLogStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+const infoLogStream = fs.createWriteStream(infoFilePath, { flags: 'a' });
 
-// Redirect console.error to write to the errorLogStream
 console.error = function (message, ...optionalParams) {
     errorLogStream.write(`${new Date().toISOString()} - ${util.format(message, ...optionalParams)}\n`);
+};
+
+console.info = function (message, ...optionalParams) {
+    infoLogStream.write(`${new Date().toISOString()} - ${util.format(message, ...optionalParams)}\n`);
 };
 
 const { 
@@ -1523,7 +1528,7 @@ async function mainRequest(prompt, withTools = false) {
 
             if (toolResponse.error) {
                 const errorMessage = `An error occurred in function call tool metadata retrieval: ${toolResponse.error}`;
-                console.error(errorMessage);
+                console.error(toolResponse);
                 prompt = `${errorMessage}. Original prompt: ${prompt}`;
             } else {
 
@@ -1543,7 +1548,7 @@ async function mainRequest(prompt, withTools = false) {
                         saveMessageToFile({ role: "system", content: metadataMessage });
                         let i = 0;
                         for (let item of functionCallingTools) {
-                            console.log(item);
+                            console.info(item);
                             let toolName = item.tool;
                             let toolArguments = item.arguments;
                             if (toolName in functionToolCallbacks) {
@@ -1564,7 +1569,7 @@ async function mainRequest(prompt, withTools = false) {
                     prompt = await handleTools(extractedMetadata.result.tools);
                     slice = false;
                 } else {
-                    //console.log("Tools not found.");
+                    console.info("Tools not found.");
                 }
             }
         }
