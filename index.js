@@ -1538,12 +1538,12 @@ async function mainRequest(prompt, withTools = false) {
 
                 if (extractedMetadata.success && extractedMetadata.result.tools) {
 
-                    async function handleTools(functionCallingTools) {
+                    async function handleTools(functionCallingTools, indexPrefix = '') {
                         let userMessages = [];
                         const formattedToolsList = functionCallingTools.map((item, index) => {
-                            return `${index}: ${item.tool}`;
+                            return `${indexPrefix}${index}: ${item.tool}`;
                         }).join(', ');
-                        const metadataMessage = `Function calling tools set in queue: ${formattedToolsList}.`;
+                        const metadataMessage = `Function calling tools set in queue [${formattedToolsList}].`;
                         appendAndGetMessages(metadataMessage, 'assistant');
                         saveMessageToFile({ role: "system", content: metadataMessage });
                         let i = 0;
@@ -1551,13 +1551,34 @@ async function mainRequest(prompt, withTools = false) {
                             console.info(item);
                             let toolName = item.tool;
                             let toolArguments = item.arguments;
+                            let subsequentTools = item.subsequentTools;
                             if (toolName in functionToolCallbacks) {
                                 let functionCallResult = await functionToolCallbacks[toolName](toolArguments);
                                 userMessages.push(
-                                    `Tool ${i} executed with results: ${JSON.stringify(functionCallResult)}.`
+                                    `Tool ${indexPrefix}${i} executed with results: ${JSON.stringify(functionCallResult)}.`
                                 );
                             } else {
-                                userMessages.push(`Tool ${i} not found: ${toolName}`);
+                                userMessages.push(`Tool ${indexPrefix}${i} not found: ${toolName}`);
+                            }
+                            // If depth of the nested tools is more than five, skip the rest
+                            if ((indexPrefix.split('.').length - 1) < 5) {
+                                if (subsequentTools) {
+                                    const toolResponse = await toolRequest(`Generate JSON metadata for the subsequent tools based on the parent tool ${indexPrefix}${i} results.`);
+                                    if (toolResponse.error) {
+                                        const errorMessage = `An error occurred in function call tool metadata retrieval: ${toolResponse.error}`;
+                                        console.error(toolResponse);
+                                        return `${errorMessage}. Original prompt: ${prompt}`;
+                                    } else {
+                                        let extractedMetadata = extractAndParseJsonBlock(toolResponse.text, tools);
+                                        if (extractedMetadata.success && extractedMetadata.result.tools) {
+                                            userMessages.push(await handleTools(subsequentTools, `${indexPrefix}${i}.`));
+                                        } else {
+                                            console.info("Subsequent tools not found.");
+                                        }
+                                    }
+                                }
+                            } else {
+                                console.info("Skipping nested tools with a greater level than 5.");
                             }
                             i++;
                         }
