@@ -111,7 +111,7 @@ const renderSelectedSchemas = (toolArgs) => {
             humanFormat += `\n- ${tool}: ${schema.description}\n`;
         });
 
-        result += `\n${JSON.stringify(data, null, 2)}\n`;
+        result += `\n${JSON.stringify(data)}\n`;
     });
 
     return [result, humanFormat];

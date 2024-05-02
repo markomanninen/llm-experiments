@@ -1,5 +1,6 @@
 const express = require('express');
-const { 
+const {
+    addFiles,
     commitChanges,
     getCommitLogs,
     revertToCommit,
@@ -24,6 +25,23 @@ const {
 } = require('./gitOperations');
 
 module.exports = function(app, io) {
+
+    // Add file(s)
+    app.get('/api/add', async (req, res) => {
+        try {
+            // Retrieve the files query parameter, which may be undefined, a string, or an array
+            let files = req.query.files;
+
+            // Ensure files is always an array
+            if (typeof files === 'string') {
+                files = [files];
+            }
+            const result = await addFiles(files);
+            res.json(result);
+        } catch (error) {
+            res.status(500).send({ message: 'Failed to retrieve commit logs', error });
+        }
+    });
 
     // Commits
     app.get('/api/commits', async (req, res) => {
@@ -119,8 +137,8 @@ module.exports = function(app, io) {
     // Diffs
     app.get('/api/diffs', async (req, res) => {
         try {
-            const { from, to } = req.query;
-            const diffs = await getDiffs(from, to);
+            const { from, to, file } = req.query;
+            const diffs = await getDiffs(from, to, file);
             res.json({ diffs });
         } catch (error) {
             res.status(500).send({ message: 'Failed to retrieve diffs', error });

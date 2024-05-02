@@ -25,7 +25,14 @@
             "format": "date-time",
             "description": "End date for filtering commits."
           }
-        }
+        },
+        "additionalProperties": false,
+        "oneOf": [
+          { "required": ["commitHash"] },
+          { "required": ["author"] },
+          { "required": ["since"] },
+          { "required": ["until"] }
+        ]
       },
       "create": {
         "description": "Create a new commit.",
@@ -43,7 +50,11 @@
             "description": "List of files to commit."
           }
         },
-        "required": ["message", "files"]
+        "additionalProperties": false,
+        "oneOf": [
+          { "required": ["message"] },
+          { "required": ["message", "files"] }
+        ]
       },
       "amend": {
         "description": "Amend an existing commit.",
@@ -58,6 +69,7 @@
             "description": "New commit message."
           }
         },
+        "additionalProperties": false,
         "required": ["commitHash", "message"]
       }
     },

@@ -605,6 +605,27 @@ async function gitOperationsDispatcher(operationData) {
         let response;
         switch (operation) {
 
+            case 'git_add':
+                const queryParamsAdd = new URLSearchParams();
+
+                if (Array.isArray(params.files)) {
+                    // If params.files is an array, append each file to the query string
+                    params.files.forEach(file => {
+                        queryParamsAdd.append('files', file);
+                    });
+                } else if (typeof params.files === 'string') {
+                    // If params.files is a single string, just append it
+                    queryParamsAdd.append('files', params.files || '.');
+                }
+
+                const queryStringAdd = queryParamsAdd.toString();
+
+                response = await fetch(`${endpoint}/add?${queryStringAdd}`, {
+                    method: 'GET',
+                    headers: headers
+                });
+                break;
+
             case 'git_commits':
                 if (params.list) {
                     const queryParams = new URLSearchParams(params.list);
@@ -637,7 +658,7 @@ async function gitOperationsDispatcher(operationData) {
                 break;
 
             case 'git_branches':
-                if (params.list) {
+                if (params.list || !params) {
                     response = await fetch(`${endpoint}/branches`, {
                         method: 'GET',
                         headers: headers
@@ -657,7 +678,7 @@ async function gitOperationsDispatcher(operationData) {
                 break;
 
             case 'git_tags':
-                if (params.list) {
+                if (params.list || !params) {
                     response = await fetch(`${endpoint}/tags`, {
                         method: 'GET',
                         headers: headers
@@ -677,16 +698,12 @@ async function gitOperationsDispatcher(operationData) {
                 break;
 
             case 'git_diff':
-                const queryParamsDiff = new URLSearchParams({ from: params.from, to: params.to });
+                const queryParamsDiff = {
+                    ...(params.from && { from: params.from }),
+                    ...(params.to && { to: params.to }),
+                    ...(params.file && { file: params.file })
+                };
                 response = await fetch(`${endpoint}/diffs?${queryParamsDiff.toString()}`, {
-                    method: 'GET',
-                    headers: headers
-                });
-                break;
-
-            case 'git_log':
-                const queryParamsLogs = new URLSearchParams(params);
-                response = await fetch(`${endpoint}/logs?${queryParamsLogs.toString()}`, {
                     method: 'GET',
                     headers: headers
                 });
@@ -778,6 +795,7 @@ const functionToolCallbacks = {
     "upsert_data_entry": upsertDataEntry,
     "retrieve_data_entry": retrieveDataEntry,
     "dynamic_content_management": dynamicContentDispatcher,
+    "git_add": (kwargs) => gitOperationsDispatcher({ git_add: kwargs }),
     "git_branches": (kwargs) => gitOperationsDispatcher({ git_branches: kwargs }),
     "git_commits": (kwargs) => gitOperationsDispatcher({ git_commits: kwargs }),
     "git_diff": (kwargs) => gitOperationsDispatcher({ git_diff: kwargs }),
@@ -1819,6 +1837,8 @@ async function handleToolsResponse(response, prompt) {
                             // What to do now because message is already in the
                             //console.log(userMessage);
                             userMessages.push(userMessage);
+                        } else {
+                            userMessages.push(`Tool ${i} not found: ${toolName}`);
                         }
                         i++;
                     }
@@ -2099,7 +2119,7 @@ async function main() {
             tools = humanFormatTools;
             system_message_metadata_schema = system_message_metadata_schema.replace("<<tools_part>>", jsonFormatTools ? system_message_metadata_schema_tools_part : "");
             system_message_metadata = system_message_metadata.
-                replace("<<response_schema>>", system_message_metadata_schema).
+                replace("<<response_schema>>", system_message_metadata_schema.replace(/\s/g, '')).
                 replace("<<tools>>", jsonFormatTools).
                 replace("<<tools_epilogue>>", jsonFormatTools ? system_message_metadata_tools_epilogue : "");
         }

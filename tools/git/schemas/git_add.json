@@ -1,0 +1,17 @@
+{
+  "description": "Add file(s).",
+  "arguments": {
+    "type": "object",
+    "properties": {
+      "files": {
+        "type": ["string", "array"],
+        "description": "The file(s) to add.",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": ["files"],
+    "additionalProperties": false
+  }
+}

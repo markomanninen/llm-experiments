@@ -10,9 +10,24 @@
       "to": {
         "type": "string",
         "description": "The ending commit hash, branch, or tag to compare to."
+      },
+      "file": {
+        "type": "string",
+        "description": "The filename to output the current diff."
       }
     },
-    "required": ["from", "to"],
+    "anyOf": [
+      {
+        "required": ["from"]
+      },
+      {
+        "required": ["to"]
+      },
+      {
+        "required": ["file"]
+      },
+      {}
+    ],
     "additionalProperties": false
   }
 }

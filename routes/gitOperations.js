@@ -1,6 +1,17 @@
 const simpleGit = require('simple-git');
 const git = simpleGit();
 
+// Add operation
+async function addFiles(files) {
+    try {
+        await git.add(files);
+        return { success: true, message: 'Files added successfully.' };
+    }
+    catch (error) {
+        throw new Error(`Add failed: ${error.message}`);
+    }
+}
+
 // Commit Operations
 async function commitChanges(message, files) {
     try {
@@ -37,9 +48,23 @@ async function revertToCommit(commitHash) {
     }
 }
 
-async function getDiffs(from, to) {
+async function getDiffs(from, to, file) {
     try {
-        const diffOutput = await git.diff([`${from}..${to}`]);
+        let diffOutput;
+        console.log([from, to, file]);
+        if ((from || to) && file) {
+            console.log('1');
+            diffOutput = await git.diff([`${from}..${to}`, '--', file]);
+        } else if (file) {
+            console.log('2');
+            diffOutput = await git.diff([file]);
+        } else if ((from || to)) {
+            console.log('3');
+            diffOutput = await git.diff([`${from}..${to}`]);
+        } else {
+            console.log('4');
+            diffOutput = await git.diff();
+        }
         return diffOutput;
     } catch (error) {
         throw new Error(`Error retrieving diffs: ${error.message}`);
@@ -186,6 +211,7 @@ async function pushChanges() {
 }
 
 module.exports = {
+    addFiles,
     commitChanges,
     getCommitLogs,
     revertToCommit,
