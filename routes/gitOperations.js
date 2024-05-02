@@ -4,7 +4,7 @@ const git = simpleGit();
 // Add operation
 async function addFiles(files) {
     try {
-        await git.add(files);
+        await git.add(files || ".");
         return { success: true, message: 'Files added successfully.' };
     }
     catch (error) {
@@ -15,7 +15,7 @@ async function addFiles(files) {
 // Commit Operations
 async function commitChanges(message, files) {
     try {
-        await git.add(files);
+        if (files) await git.add(files);
         await git.commit(message);
         return { success: true, message: 'Commit created successfully.' };
     } catch (error) {

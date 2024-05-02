@@ -628,16 +628,26 @@ async function gitOperationsDispatcher(operationData) {
 
             case 'git_commits':
                 if (params.list) {
-                    const queryParams = new URLSearchParams(params.list);
-                    response = await fetch(`${endpoint}/commits?${queryParams.toString()}`, {
+                    const queryParamsCommitsList = {
+                        ...(params.list.commitHash && { commitHash: params.list.commitHash }),
+                        ...(params.list.author && { author: params.list.author }),
+                        ...(params.list.since && { since: params.list.since }),
+                        ...(params.list.until && { until: params.list.until })
+                    };
+                    
+                    response = await fetch(`${endpoint}/commits?${queryParamsCommitsList.toString()}`, {
                         method: 'GET',
                         headers: headers
                     });
                 } else if (params.create) {
+                    const queryParamsCommitsCreate = {
+                        ...(params.create.message && { message: params.create.message }),
+                        ...(params.create.files && { files: params.create.files })
+                    };
                     response = await fetch(`${endpoint}/commit`, {
                         method: 'POST',
                         headers: headers,
-                        body: JSON.stringify(params.create)
+                        body: JSON.stringify(queryParamsCommitsCreate)
                     });
                 } else if (params.amend) {
                     response = await fetch(`${endpoint}/commit/${params.amend.commitHash}`, {
