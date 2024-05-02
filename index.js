@@ -1535,7 +1535,10 @@ async function mainRequest(prompt, withTools = false) {
 
                     async function handleTools(functionCallingTools) {
                         let userMessages = [];
-                        const metadataMessage = `Function calling tools set in queue: ${Object.keys(functionCallingTools).join(', ')}.`;
+                        const formattedToolsList = functionCallingTools.map((item, index) => {
+                            return `${index}: ${item.tool}`;
+                        }).join(', ');
+                        const metadataMessage = `Function calling tools set in queue: ${formattedToolsList}.`;
                         appendAndGetMessages(metadataMessage, 'assistant');
                         saveMessageToFile({ role: "system", content: metadataMessage });
                         let i = 0;
