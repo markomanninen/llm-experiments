@@ -1,5 +1,5 @@
 {
-  "description": "Retrieve data entry/entries by key or key_group name corresponding given value.",
+  "description": "Retrieve data entry/entries by key or key_group name corresponding given value. For instance, find user profile with field=key_group and value=user_profile.",
   "arguments": {
     "type": "object",
     "properties": {
@@ -10,7 +10,7 @@
       },
       "value": {
         "type": "string",
-        "description": "Data field value, key or key_group."
+        "description": "Data field value"
       }
     },
     "required": ["field", "value"],

@@ -1616,7 +1616,6 @@ async function handleSubsequentTool(subsequentTool, toolIndexPath) {
         console.error(toolResponse);
         return errorMessage;
     } else {
-        
         let userMessages = [];
         const arguments = extractAndParseJsonBlock(toolResponse.text, null);
         // Only the first found JSON item is used as arguments
