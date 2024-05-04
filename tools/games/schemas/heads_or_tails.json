@@ -1,5 +1,5 @@
 {
-  "description": "A simple head-or-tails game where the user must guess 'heads' or 'tails'. The game keeps track of the user's score. Other variations of the 'boolean' game are also possible, where user needs to pick up a choice between two options.",
+  "description": "A simple head-or-tails game where the user must guess 'heads' or 'tails'. The game keeps track of the user's score. Call 'user_input' only when user has clearly given the either of the choice. Other variations of the 'boolean' game are also possible, where user needs to pick up a choice between two options.",
   "arguments": {
     "type": "object",
     "properties": {

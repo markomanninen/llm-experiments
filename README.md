@@ -47,7 +47,7 @@ This command includes several options and flags that modify the behavior of the 
 
 ### Explanation of Script Arguments
 
-- `-t, --tool`: Allows specifying tools to be used during the session. Tools could be additional functionalities or features like games, analytics, etc. Notation supports inclusion of sub-schemas, for instance `games.number_guessing` includes only specified tool schema for the chat session. Further, you may exclude certain sub-schemas, for instance: `-t games -t ^games.number_guessing` excludes number guessing schema and includes all other schemas available in games section.
+- `-t, --tool`: Allows specifying tools to be used during the session. Tools could be additional functionalities or features like games, analytics, etc. Notation supports inclusion of sub-schemas, for instance `games.number_guessing` includes only specified tool schema for the chat session. Further, you may exclude certain sub-schemas, for instance: `-t games -t ~games.number_guessing` excludes number guessing schema and includes all other schemas available in games section.
 - `-p, --persona`: Sets the assistant persona. If set to "random," a random persona from a predefined list is used. Personas can influence how responses are formatted or the tone of the interactions.
 - `-a, --audio`: Enables text-to-speech functionality, specifying which service to use (Deepgram or Elevenlabs). If not set, text-to-speech is disabled.
 - `-v, --voice`: Specifies the voice ID for the chosen text-to-speech service, allowing customization of the speech output to match specific voice profiles.
