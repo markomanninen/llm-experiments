@@ -1,5 +1,5 @@
 {
-  "description": "You may control key-value properties such as user profile data in the storage with the upsert_data_entry function calling tool and arguments defined in the following schema. Prompts in human language, such as 'Update my location in user settings: Oberon.' would utilize these tools. Insert or update data entry including key, value, key_group (user_profile, general).",
+  "description": "Control key-value properties such as user profile data in the storage with the upsert_data_entry function calling tool and arguments defined in the following schema. Prompts in human language, such as 'Update my location in user settings: Oberon.' would utilize the tool. Insert or update data entry including key, value, key_group (user_profile, general). Automatically store relevant information about the users preferences, behaviour, interests, contact information, etc. in the storage from the on-going chat.",
   "arguments": {
     "type": "object",
     "properties": {

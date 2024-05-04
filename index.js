@@ -1624,8 +1624,9 @@ async function handleSubsequentTool(subsequentTool, toolIndexPath) {
         const functionCallResult = await functionToolCallbacks[subsequentToolName](toolArguments);
         
         console.info(`Tool ${toolIndexPath}:${subsequentToolName} with arguments (${JSON.stringify(toolArguments)}) executed with results: ${JSON.stringify(functionCallResult)}.`);
-        
+        console.log(`\r\x1b[33m⚙️  Executing tool ${toolIndexPath}:${subsequentToolName} with arguments: ${JSON.stringify(toolArguments)}.\x1b[0m`);
         userMessages.push(`Role: system. Tool ${toolIndexPath}:${subsequentToolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
+        console.log(`\x1b[33m   Tool ${toolIndexPath}:${subsequentToolName} executed with results: ${JSON.stringify(functionCallResult)}.\x1b[0m`);
         const subsequentMetadataTools = arguments.result[0].subsequentTools || [];
         // Add information about the call and result to the message list
         appendAndGetMessages(userMessages[userMessages.length - 1], 'user');

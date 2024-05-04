@@ -196,7 +196,7 @@ const nodeCodeRunner = ({code, stateKey = "session"}) => {
         };
 
         // Setup the VM context
-        const context = {console, [stateKey]: state, Math, Array, Object, Number, String, Boolean, Symbol};
+        const context = {console, [stateKey]: state, require, Math, Array, Object, Number, String, Boolean, Symbol};
 
         // Include allowed functions into the context
         const allowedFunctions = allowedBuiltins({
