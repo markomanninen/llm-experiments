@@ -83,7 +83,7 @@ To start chat with audio output you need to have an account for Deepgram or Elev
 node .\index.js --no-deprecation llama3-70b-8192 groq -p "Voice Chatter" -a elevenlabs
 ```
 
-This will use the default voice of Elevenlabs (Drew) and speak aloud the responses given by LLM.
+This will use the default voice of Elevenlabs (Drew) and speak aloud the responses given by LLM. Persona is instructed to keep responses short, from one to three sentences so that dialogue is more natural in a casual chat.
 
 *Speech recognition has not been implemented to the application yet.*
 
