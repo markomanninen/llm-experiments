@@ -5,20 +5,21 @@
 // truth, lie or heads, tails
 function createHeadsOrTailsGame() {
     let score = 0;
-    // Randomly decide between 'ping' and 'pong'
+    // Randomly decide between 'heads' and 'tails'
     let expectedInput = Math.random() < 0.5 ? "heads" : "tails";
 
     return function (userInput) {
         let normalizedInput = userInput.toLowerCase();
+        let data;
         if (normalizedInput === expectedInput) {
             score++;
-            const data = { success: true, message: `Correct! Expected ${expectedInput}. Your score is ${score}.` };
-            // Randomly decide next expected input
-            expectedInput = Math.random() < 0.5 ? "heads" : "tails";
-            return data;
+            data = { success: true, message: `Correct! Expected ${expectedInput}. Your score is ${score}.` };
         } else {
-            return { success: false, message: `Incorrect! Expected ${expectedInput}. Please try again.` };
+            data = { success: false, message: `Incorrect! Expected ${expectedInput}. Please try again.` };
         }
+        // Randomly decide next expected input
+        expectedInput = Math.random() < 0.5 ? "heads" : "tails";
+        return data;
     };
 }
 
@@ -57,10 +58,18 @@ class Hangman {
     }
 
     play(guess) {
+
+        // Check if the game has been initialized
+        if (this.selectedWord.length === 0) {
+            return { success: false, message: "Game has not been initialized. Please call the init method with a valid word first." };
+        }
+
+        // Check if the game is over
         if (this.gameOver) {
             return { success: false, message: "Game is over. Initialize a new game to continue." };
         }
 
+        // Check if the guess is valid
         if (typeof guess !== 'string' || guess.length !== 1 || !guess.match(/[a-z]/i)) {
             return { success: false, message: 'Invalid guess. Please enter a single letter.' };
         }
@@ -73,7 +82,7 @@ class Hangman {
             }
         });
 
-        let message = found ? 'Correct!' : `Wrong! You have ${this.remainingGuesses} guesses left. Output hangman ascii figure.`;
+        let message = found ? 'Correct! Output the wordState.' : `Wrong! You have ${this.remainingGuesses} guesses left. Output hangman ascii figure.`;
         if (!found) {
             this.remainingGuesses--;
         }
@@ -89,6 +98,9 @@ class Hangman {
         }
 
         return {
+            // There is a slight change of missinterpretation when the wrong guess is the last one
+            // but the success is 'true'. But the idea is that success is 'false' only when
+            // playing is not possible with the current game state, and it must be re-initialized.
             success: true,
             message: message,
             wordState: this.guessedLetters.join(' '),
@@ -101,7 +113,7 @@ class Hangman {
 
     getHangmanFigure() {
         const stages = [
-            // Final state: head, torso, both arms, and both legs
+            // Final game over state: head, torso, both arms, and both legs
             `
                ------
                |    |
@@ -226,30 +238,33 @@ const fireWaterGrass = {
 
 };
 
-// Use fireWaterGrass as a base for the rock-paper-scissors variations of the game
-const rockPaperScissors = Object.assign({}, fireWaterGrass);
-rockPaperScissors.init = function() {
-    const elements = ['rock', 'paper', 'scissors'];
-    const rules = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
-    const name = "Rock Paper Scissors";
-    return fireWaterGrass.init.apply(this, [elements, rules, name]);
-};
-
 function createFireWaterGrassGame() {
+    // Return a copy of the object to avoid shared state between game instances
     return Object.assign({}, fireWaterGrass);
 }
 
 function createRockPaperScissorsGame() {
-    return Object.assign({}, rockPaperScissors);
+    // Use fireWaterGrass as a base for the rock-paper-scissors variations of the game
+    const rockPaperScissors = createFireWaterGrassGame();
+    // Override the init method to set the specific elements and rules for rock-paper-scissors
+    rockPaperScissors.init = function() {
+        const elements = ['rock', 'paper', 'scissors'];
+        const rules = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
+        const name = "Rock Paper Scissors";
+        return fireWaterGrass.init.apply(this, [elements, rules, name]);
+    };
+    return rockPaperScissors;
 }
 
 function createNumberGuessingGame(min = 1, max = 100, guesses = 7) {
+
     let secretNumber = Math.floor(Math.random() * (max - min + 1) + min);
     let remainingGuesses = guesses;
 
     return function (userGuess) {
+
         if (remainingGuesses === 0) {
-            return { success: false, message: `Game over! The secret number was ${secretNumber}.` };
+            return { success: false, message: `There are no guesses left. Initialize a new game.` };
         }
 
         const guess = parseInt(userGuess);
@@ -259,14 +274,20 @@ function createNumberGuessingGame(min = 1, max = 100, guesses = 7) {
         }
 
         if (guess === secretNumber) {
+            remainingGuesses = 0;
             return { success: true, message: `Congratulations! You guessed the secret number ${secretNumber} correctly.` };
         }
 
         remainingGuesses--;
+
+        if (remainingGuesses === 0) {
+            return { success: false, message: `Game over! The secret number was ${secretNumber}.` };
+        }
+
         if (guess < secretNumber) {
-            return { success: false, message: `Too low, try higher. Remaining guesses: ${remainingGuesses}` };
+            return { success: false, message: `Too low, try higher.`, remainingGuesses: remainingGuesses };
         } else {
-            return { success: false, message: `Too high, try lower. Remaining guesses: ${remainingGuesses}` };
+            return { success: false, message: `Too high, try lower.`, remainingGuesses: remainingGuesses };
         }
     };
 }

@@ -1,5 +1,5 @@
 {
-  "description": "A classic number guessing game where the user tries to guess a secret number within a specified range and a limited number of attempts. The game provides hints such as 'too high', 'too low', or 'correct' based on the user's guesses. The game ends when the user guesses the number or runs out of attempts. The game can be initialized with a new secret number range and number of attempts, or the user can make a guess to receive feedback.",
+  "description": "A classic number guessing game where the user tries to guess a secret number within a specified range and a limited number of attempts. The game provides hints such as 'too high', 'too low', or 'correct' based on the user's guesses. The game ends when the user guesses the number or runs out of attempts. The game can be initialized with a new secret number range and number of attempts, or the user can make a guess to receive feedback. If user tries to guess the first number before initialization of the game, call init_game and guess_number as separate calls in sequence.",
   "arguments": {
     "type": "object",
     "properties": {
@@ -9,22 +9,34 @@
         "properties": {
           "min": {
             "type": "integer",
-            "description": "The minimum value of the secret number."
+            "description": "The minimum value of the secret number.",
+            "minimum": 1
           },
           "max": {
             "type": "integer",
-            "description": "The maximum value of the secret number."
+            "description": "The maximum value of the secret number.",
+            "minimum": 2
           },
           "guesses": {
             "type": "integer",
-            "description": "The number of guesses allowed to the user to find the secret number."
+            "description": "The number of guesses allowed to the user to find the secret number.",
+            "minimum": 1
           }
         },
         "additionalProperties": false
       },
       "guess_number": {
         "type": "integer",
-        "description": "The number guessed by the user. The game responds with hints such as 'too high', 'too low', or 'correct' based on the user's guess. The game ends when the user guesses the number or runs out of guesses."
+        "description": "The number guessed by the user. The game responds with hints such as 'too high', 'too low', or 'correct' based on the user's guess. The game ends when the user guesses the number or runs out of guesses.",
+        "minimum": 1,
+        "dependencies": {
+            "init_game": {
+              "properties": {
+                "min": { "minimum": { "$data": "1/init_game/min" } },
+                "max": { "maximum": { "$data": "1/init_game/max" } }
+              }
+            }
+        }
       }
     },
     "oneOf": [

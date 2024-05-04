@@ -1,19 +1,26 @@
 {
-  "description": "Play a hangman game with the user. The user has seven guesses to find the word as in a regular hangman figure parts. Start the game by setting a random word in init_word argument. Be creative on setting a random word. Do NOT use the most obvious ones, like cloudy, house, fables, or horse. Then, play the game by setting each letter given by the user by the guess_letter argument. Game instance responds with the state of the game at each step. If letter guess is wrong, draw the hangman figure. When user guesses the whole word, set the guess_word argument with the given word. The game ends when the user guesses the word or runs out of guesses.",
+  "description": "Play a hangman game with the user. The user has seven guesses to find the word as in a regular hangman figure parts. Start the game by setting a random word in init_word argument. Be creative on setting a random word. Do NOT use the most obvious ones, like mysterious, cloudy, house, fables, or horse. Then, play the game by setting each letter given by the user by the guess_letter argument. Game instance responds with the state of the game at each step. Call too each time a letter is given so that you have the most recent state of the game. If letter guess is wrong, draw the hangman figure. When user guesses the whole word, set the guess_word argument with the given word. The game ends when the user guesses the word or runs out of guesses.",
   "arguments": {
     "type": "object",
     "properties": {
       "init_word": {
         "type": "string",
-        "description": "The word invented by assistant and to be guessed by the user. The word should be in lowercase and contain only letters. Invent the word and set init_word argument for the user to guess. Be creative! Word cannot be a placeholder or anonymized string similar to ***, ???, _ _ _ etc. Do not tell word to the user!"
+        "description": "The word invented by assistant and to be guessed by the user. The word should be in lowercase and contain only letters. Invent the word and set init_word argument for the user to guess. Be creative! Word cannot be a placeholder or anonymized string similar to ***, ???, _ _ _ etc. Word cannot be empty. Do not tell word to the user!",
+        "pattern": "^[a-z]+$",
+        "minLength": 1
       },
       "guess_letter": {
         "type": "string",
-        "description": "A lowercase letter guessed by the user. Set the letter as a guess_letter argument quessed by the user. Game instance returns the hangman figure parts in hangmanFigure key, if the letter is not in the word. Output the current state of the game with the ascii hangmanFigure, when available."
+        "description": "A lowercase letter guessed by the user. Set the letter as a guess_letter argument quessed by the user. Game instance returns the hangman figure parts in hangmanFigure key, if the letter is not in the word. Output the current wordState of the game, and the ascii hangmanFigure, when available.",
+        "pattern": "^[a-z]$",
+        "minLength": 1,
+        "maxLength": 1
       },
       "guess_word": {
         "type": "string",
-        "description": "A lowercase word guessed by the user. Game instance responds with the right or wrong indication. Game is over in both cases. If guess was wrong, output ascii hangmanfigure. If it was right, output 'saved from torture' ascii art."
+        "description": "A lowercase word guessed by the user. Game instance responds with the right or wrong indication. Game is over in both cases. If guess was wrong, output ascii hangmanfigure. If it was right, output 'saved from torture' ascii art.",
+        "pattern": "^[a-z]+$",
+        "minLength": 1
       }
     },
     "oneOf": [

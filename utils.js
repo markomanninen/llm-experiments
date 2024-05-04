@@ -47,6 +47,7 @@ const extractAndParseJsonBlock = (text, tools) => {
             }
         }
     }
+    return { result: results, success: true }
     //console.log(`Extracted JSON blocks: ${results}`);
     //const metadataFields = ['topics', 'intent'];
     // Optionally, check for other function calling tools if needed

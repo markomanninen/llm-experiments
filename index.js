@@ -1,5 +1,4 @@
-// iOllama.js - A custom chatbot for the a local ollama LLM platform
-// Requires: npm install axios, yargs, groq-sdk, and ollama to serve LLM models locally at the port 11434
+// index.js -  Command-line chat interface to ollama, Groq, OpenAI, and Anthropic models with audio and function calling tools (games, data management, code runner, etc.)
 // See: https://ollama.com, https://ollama.com/library, and
 // https://github.com/ollama/ollama?tab=readme-ov-file#quickstart
 // https://www.npmjs.com/package/groq-sdk
@@ -26,12 +25,16 @@ require('dotenv').config();
 const applicationName = "llm-experiments";
 
 // Set the path for the log file
-const logFilePath = path.join(__dirname, `${applicationName}.errors.log`);
+const errorFilePath = path.join(__dirname, `${applicationName}.errors.log`);
 const infoFilePath = path.join(__dirname, `${applicationName}.info.log`);
+const debugFilePath = path.join(__dirname, `${applicationName}.debug.log`);
+const traceFilePath = path.join(__dirname, `${applicationName}.trace.log`);
 
 // Create a writable stream to the log files
-const errorLogStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+const errorLogStream = fs.createWriteStream(errorFilePath, { flags: 'a' });
 const infoLogStream = fs.createWriteStream(infoFilePath, { flags: 'a' });
+const debugLogStream = fs.createWriteStream(debugFilePath, { flags: 'a' });
+const traceLogStream = fs.createWriteStream(traceFilePath, { flags: 'a' });
 
 console.error = function (message, ...optionalParams) {
     errorLogStream.write(`${new Date().toISOString()} - ${util.format(message, ...optionalParams)}\n`);
@@ -41,17 +44,31 @@ console.info = function (message, ...optionalParams) {
     infoLogStream.write(`${new Date().toISOString()} - ${util.format(message, ...optionalParams)}\n`);
 };
 
+console.debug = function (message, ...optionalParams) {
+    debugLogStream.write(`${new Date().toISOString()} - ${util.format(message, ...optionalParams)}\n`);
+};
+
+console.trace = function (message, ...optionalParams) {
+    traceLogStream.write(`${new Date().toISOString()} - ${util.format(message, ...optionalParams)}\n`);
+};
+
+
 const { 
     prompts, 
     getPrompt,
     randomPersona,
     assistantPersonas,
     system_message_metadata_tools_epilogue, 
-    system_message_metadata_schema_tools_part 
+    system_message_metadata_schema_tools_part, 
+    system_message_metadata_schema_arguments,
+    system_message_metadata_schema_with_tools,
+    system_message_metadata_schema_without_tools,
+    system_message_metadata_schema_tool_only,
 } = require('./prompts');
 
 let { 
-    system_message_metadata, 
+    system_message_metadata,
+    system_message_metadata2,
     system_message_metadata_schema
 } = require('./prompts');
 
@@ -167,10 +184,10 @@ let messageLimit = 11;
 let summarizeInterval = 10;
 let variables = {};
 let model = "";
-// Stream mode does not suite with well with non-tool games, because the logic
+// Note: stream mode does not suite with well with non-tool games, because the logic
 // is based on the response text, which should be all available before
 // doing conjectures from the input.
-let stream = false;
+let stream = null;
 // Applicable with ollama client only. Other clients are always in chat mode
 let chat = true;
 let summary = "";
@@ -293,10 +310,10 @@ function speechToTextDeepgram() {
 async function textToSpeechDeepGram(text) {
     try {
         const response = await deepgram.speak.request({ text: text }, { model: voiceId });
-        const stream = await response.getStream();
-        if (stream) {
+        const streamAudio = await response.getStream();
+        if (streamAudio) {
             // Using elevenlabs stream player!
-            await playStream(stream);
+            await playStream(streamAudio);
         } else {
             throw new Error("Failed to obtain audio stream.");
         }
@@ -323,8 +340,8 @@ async function textToSpeechElevenLabs(text) {
             model_id: "eleven_multilingual_v2"
         };
         // Ensure voiceId is defined before this call, or pass it as a parameter
-        const audio = await elevenlabs.textToSpeech.convertAsStream(voiceId, data);
-        await playStream(audio);
+        const streamAudio = await elevenlabs.textToSpeech.convertAsStream(voiceId, data);
+        await playStream(streamAudio);
         // await play(audio); // Uncomment if this is needed and correct
     } catch (error) {
         console.warn("An error occurred in textToSpeechElevenLabs:", error);
@@ -351,7 +368,7 @@ const numberGuessing = (kwargs) => {
                 return { success: false, message: "Invalid number of guesses. The number of guesses must be greater than one." };
             }
             numberGuessingGame = createNumberGuessingGame(min, max, guesses);
-            return { success: true, message: `New number guessing game initialized with range ${min}-${max} and ${guesses} guesses allowed.` };
+            return { success: true, message: `New number guessing game initialized with range ${min}-${max} and ${guesses} guesses allowed. Guesses before or at the initialization are not accounted.` };
         } else if (kwargs.guess_number) {
             // Make a guess
             const number = parseInt(kwargs.guess_number);
@@ -540,7 +557,7 @@ async function dynamicContentDispatcher(operationData) {
                     body: JSON.stringify({ content: params.content })
                 });
                 break;
-
+            /*
             case 'revert_changes':
                 if (!params.commitHash) {
                     return { success: false, message: "Missing 'commitHash' required for reverting changes." };
@@ -576,7 +593,7 @@ async function dynamicContentDispatcher(operationData) {
                     headers: headers
                 });
                 break;
-
+            */
             default:
                 return { success: false, message: "Invalid operation specified." };
         }
@@ -801,7 +818,7 @@ async function gitOperationsDispatcher(operationData) {
             const data = await response.json();
             return { success: true, data };
         } else {
-            console.error(`Failed response from server: ${response.status}`, await response.json());
+            console.error(response);
             return { success: false, message: `Server responded with status: ${response.status}` };
         }
     } catch (error) {
@@ -909,6 +926,7 @@ async function groqChatRequest(chat_messages, model, temperature = 0.0, max_toke
     if (json) {
         options.response_format = { "type": "json_object" };
     }
+    console.trace("groq.chat.completions.create", options);
     const chatCompletion = await groq.chat.completions.create(options);
     if (stream) {
         return chatCompletion;
@@ -967,7 +985,7 @@ async function claudeChatRequest(chat_messages, model, temperature = 0.0, max_to
     return { text: chatCompletion.content[0].text.trim() };
 }
 
-async function promptRequest(chatRequest, prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false) {
+async function promptRequest(chatRequest, prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false, json = false) {
 
     let chatMessages = []
     if (system) {
@@ -975,22 +993,22 @@ async function promptRequest(chatRequest, prompt, model, system = "", temperatur
     }
     chatMessages.push({ role: "user", content: prompt });
 
-    return chatRequest(chatMessages, model, temperature, max_tokens, top_p, stop, stream);
+    return chatRequest(chatMessages, model, temperature, max_tokens, top_p, stop, stream, json);
 }
 
-async function groqPromptRequest(prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false) {
-    return promptRequest(groqChatRequest, prompt, model, system, temperature, max_tokens, top_p, stop, stream);
+async function groqPromptRequest(prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false, json = false) {
+    return promptRequest(groqChatRequest, prompt, model, system, temperature, max_tokens, top_p, stop, stream, json);
 }
 
-async function gPTPromptRequest(prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false) {
-    return promptRequest(gPTChatRequest, prompt, model, system, temperature, max_tokens, top_p, stop, stream);
+async function gPTPromptRequest(prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false, json = false) {
+    return promptRequest(gPTChatRequest, prompt, model, system, temperature, max_tokens, top_p, stop, stream, json);
 }
 
-async function claudePromptRequest(prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false) {
-    return promptRequest(claudeChatRequest, prompt, model, system, temperature, max_tokens, top_p, stop, stream);
+async function claudePromptRequest(prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false, json = false) {
+    return promptRequest(claudeChatRequest, prompt, model, system, temperature, max_tokens, top_p, stop, stream, json);
 }
 
-async function ollamaChatRequest(chatMessages, model, temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false) {
+async function ollamaChatRequest(chatMessages, model, temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, stream = false, json = false) {
     const data = {
         model: model,
         stream: stream,
@@ -1004,7 +1022,7 @@ async function ollamaChatRequest(chatMessages, model, temperature = 0.0, max_tok
         messages: chatMessages
     };
 
-    // TODO: json format?
+    // TODO: json format? It has serious performance issues in 5/2024
 
     const config = {
         method: 'post',
@@ -1035,7 +1053,7 @@ async function ollamaChatRequest(chatMessages, model, temperature = 0.0, max_tok
     }
 }
 
-async function ollamaPromptRequest(prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, context = [], stream = false) {
+async function ollamaPromptRequest(prompt, model, system = "", temperature = 0.0, max_tokens = 1024, top_p = 1, stop = null, context = [], stream = false, json = false) {
 
     const data = {
         model: model,
@@ -1077,7 +1095,9 @@ async function ollamaPromptRequest(prompt, model, system = "", temperature = 0.0
 async function generateSummary(userMessage, model, callback) {
     try {
         const system = getPrompt("summarySystemPrompt", llmClient, model).replace("<<previous_summary>>", (messages.length > messageLimit ? summary : 'n/a'))
-        return callback(userMessage, model, system, 0.0, 1024, 1);
+        // Generate summary with arguments:
+        // userMessage, model, system, temperature, max_tokens, top_p, stop, stream, json
+        return callback(userMessage, model, system, 0.0, 1024, 1, null, false, false);
     } catch (error) {
         return { error: `An error occurred in generate summary: ${error.message}`, text: "" };
     }
@@ -1093,15 +1113,17 @@ function appendAndGetMessages(text, role = 'user', count = 49, slice = false) {
     if (slice) {
         let localMessages = messages.slice();
         if (localMessages.length > 0 && localMessages[localMessages.length - 1].role === role) {
-            localMessages[localMessages.length - 1].content = ` ${text}`;
+            localMessages[localMessages.length - 1].content = `${text}`;
         } else {
             localMessages.push({ role, content: text });
         }
         return localMessages.slice(Math.max(localMessages.length - count, 0));
     }
 
+    console.debug(`${role}: ${text}`);
+
     if (messages.length > 0 && messages[messages.length - 1].role === role) {
-        messages[messages.length - 1].content += ` ${text}`;
+        messages[messages.length - 1].content += `\n- ${text}`;
     } else {
         messages.push({ role, content: text });
     }
@@ -1152,7 +1174,7 @@ async function summarizeMessages(userMessages) {
     try {
         //console.log(`\x1B[33m✍  Summary data: ${summaryInputText}\x1B[0m`);
         const summaryResult = await profileAsyncOperation(summaryGenerators[llmClient], "summarizeMessages", summaryInputText);
-        //console.log(`\x1B[33m✍  Summary: ${summaryResult.text}\x1B[0m`);
+        console.info(`Generated summary: ${summaryResult.text}`);
         if (summaryResult.error) {
             console.warn(`Error generating summary: ${summaryResult.error}`);
         } else if (summaryResult.text) {
@@ -1180,7 +1202,7 @@ function checkForSummarization() {
     }
 }
 
-async function sendRequestAndRetrieveResponseGPT(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false) {
+async function sendRequestAndRetrieveResponseGPT(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false) {
 
     saveMessageToFile({ role: "user", content: prompt, system: systemPrompt })
     checkForSummarization();
@@ -1188,9 +1210,9 @@ async function sendRequestAndRetrieveResponseGPT(prompt, systemPrompt = "", temp
     try {
 
         if (stream) {
-            return gPTChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', count = messageLimit, slice = slice)], model, temperature, max_tokens = 1024, top_p = 1, stop = null, stream = true, json = JsonStorage);
+            return gPTChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
         } else {
-            const chatCompletion = await gPTChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', count = messageLimit, slice = slice)], model, temperature, max_tokens = 1024, top_p = 1, stop = null, stream = false, json = json);
+            const chatCompletion = await gPTChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
             return { text: chatCompletion.text, context: [] };
         }
     } catch (error) {
@@ -1198,7 +1220,7 @@ async function sendRequestAndRetrieveResponseGPT(prompt, systemPrompt = "", temp
     }
 }
 
-async function sendRequestAndRetrieveResponseClaude(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false) {
+async function sendRequestAndRetrieveResponseClaude(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false) {
 
     saveMessageToFile({ role: "user", content: prompt, system: systemPrompt })
     checkForSummarization();
@@ -1206,9 +1228,9 @@ async function sendRequestAndRetrieveResponseClaude(prompt, systemPrompt = "", t
     try {
 
         if (stream) {
-            return claudeChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', count = messageLimit, slice = slice)], model, temperature, max_tokens = 1024, top_p = 1, stop = null, stream = true, json = json);
+            return claudeChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
         } else {
-            const chatCompletion = await claudeChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', count = messageLimit, slice = slice)], model, temperature, max_tokens = 1024, top_p = 1, stop = null, stream = false, json = json);
+            const chatCompletion = await claudeChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
             return { text: chatCompletion.text, context: [] };
         }
     } catch (error) {
@@ -1216,7 +1238,7 @@ async function sendRequestAndRetrieveResponseClaude(prompt, systemPrompt = "", t
     }
 }
 
-async function sendRequestAndRetrieveResponseGroq(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false) {
+async function sendRequestAndRetrieveResponseGroq(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false) {
 
     saveMessageToFile({ role: "user", content: prompt, system: systemPrompt })
     checkForSummarization();
@@ -1224,9 +1246,9 @@ async function sendRequestAndRetrieveResponseGroq(prompt, systemPrompt = "", tem
     try {
 
         if (stream) {
-            return groqChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', count = messageLimit, slice = slice)], model, temperature, max_tokens = 1024, top_p = 1, stop = null, stream = true, json = json);
+            return groqChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
         } else {
-            const chatCompletion = await groqChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', count = messageLimit, slice = slice)], model, temperature, max_tokens = 1024, top_p = 1, stop = null, stream = false, json = json);
+            const chatCompletion = await groqChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
             return { text: chatCompletion.text, context: [] };
         }
     } catch (error) {
@@ -1234,7 +1256,7 @@ async function sendRequestAndRetrieveResponseGroq(prompt, systemPrompt = "", tem
     }
 }
 
-async function sendRequestAndRetrieveResponse(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false) {
+async function sendRequestAndRetrieveResponse(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false) {
 
     // Define the base data object
     let messageData = {
@@ -1253,9 +1275,9 @@ async function sendRequestAndRetrieveResponse(prompt, systemPrompt = "", tempera
 
     try {
         if (chat) {
-            return ollamaChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', count = messageLimit, slice = slice)], model, temperature, 1024, 1, null, stream);
+            return ollamaChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
         } else {
-            return ollamaPromptRequest(prompt, model, systemPrompt, temperature, 1024, 1, null, contextIds, stream);
+            return ollamaPromptRequest(prompt, model, systemPrompt, temperature, 1024, 1, null, contextIds, stream, json);
         }
     } catch (error) {
         return { error: `An error occurred in ollama response: ${error.message}` };
@@ -1282,7 +1304,7 @@ function spinner() {
         if (stopSpinner.isStopped) {
             clearInterval(interval);
             showCursor();
-            process.stdout.write('\r' + ' '.repeat(40) + '\r');
+            //process.stdout.write('\r' + ' '.repeat(40) + '\r');
             return;
         }
         const chars = spinnerChars[i++ % spinnerChars.length];
@@ -1291,52 +1313,6 @@ function spinner() {
         }
     }, 500);
     return interval;
-}
-
-async function spinRequest(prompt, slice = false) {
-
-    if (prompt == "") {
-        return { error: "An error occurred: Empty prompt." };
-    }
-
-    stopSpinner.isStopped = false;
-    const spinnerThread = spinner(stopSpinner);
-    const system_prompt = getPrompt("systemPrompt", llmClient, model).
-        replace("<<assistant_persona>>", assistantPersonas[assistantPersona]).
-        replace(/<<model>>/g, `${assistantPersona} (${model})`).
-        replace("<<function_calling_tools>>", tools ? JSON.stringify(tools) : 'n/a').
-        // Secret vault can be used in non-streaming mode only
-        // It is hard to detect code block and remove them from the streaming output
-        //replace("<<miscallaneous_tools>>", (stream ? "n/a" : getPrompt("secretVaultPrompt", llmClient, model).
-        //replace("<<vault>>", JSON.stringify(secretVault)))).
-        // Start keeping the latest cumulative summary on the system prompt when message limit has been exceeded
-        replace("<<summary>>", (summary ? summary : 'n/a')).
-        replace("<<global_variables>>", JSON.stringify(variables));
-
-    // responseGenerators could provide the rest of the llm request parameters?
-    const response = await profileAsyncOperation(responseGenerators[llmClient], "spinRequest", prompt, system_prompt, temperature, json = false, slice = slice);
-    stopSpinner.isStopped = true;
-    clearInterval(spinnerThread);
-    console.log(`spinRequest response: ${response}`);
-    return response;
-}
-
-async function _toolRequest(prompt) {
-
-    if (prompt == "") {
-        return { error: "An error occurred: Empty prompt." };
-    }
-
-    stopSpinner.isStopped = false;
-    const spinnerThread = spinner(stopSpinner);
-    const system_prompt = system_message_metadata;
-
-    // responseGenerators could provide the rest of the llm request parameters?
-    const response = await profileAsyncOperation(toolGenerators[llmClient], "toolRequest", prompt, system_prompt, 0.0, json = true);
-    stopSpinner.isStopped = true;
-    clearInterval(spinnerThread);
-    console.log(`toolRequest response: ${response}`);
-    return response;
 }
 
 /****************************************************
@@ -1473,10 +1449,6 @@ async function processUserInput(input, withToolRequest = true) {
         return;
     }
 
-    //console.log(`\x1B[38;5;45m${prompt}\x1B[0m`);
-    //let toolRequestResult = withToolRequest && tools ? await toolRequest(prompt) : null;
-    //await handleToolsResponse(toolRequestResult, prompt);
-
     await mainRequest(prompt, withToolRequest && tools);
 
     showCursor();
@@ -1505,102 +1477,165 @@ function buildSystemPrompt() {
         replace("<<global_variables>>", JSON.stringify(variables));
 }
 
-async function toolRequest(prompt) {
+async function argumentsRequest(prompt, toolName, arguments, slice = false) {
     // json=true gives quite many times 'failed_generation' errors in groq...
-    return await profileAsyncOperation(toolGenerators[llmClient], "toolRequest", prompt, system_message_metadata, 0.0, false);
+    console.info(`Argument request prompt (${toolName}): '${prompt}'`);
+    return await profileAsyncOperation(toolGenerators[llmClient], "argumentsRequest", prompt, system_message_metadata2.replace('<<tool_name>>', toolName).replace('"<<initial_arguments>>"', arguments), 0.0, true, slice);
+}
+
+async function toolRequest(prompt, slice = false) {
+    // json=true gives quite many times 'failed_generation' errors in groq...
+    console.info(`Tool request prompt: '${prompt}'`);
+    return await profileAsyncOperation(toolGenerators[llmClient], "toolRequest", prompt, system_message_metadata, 0.0, true, slice);
 }
 
 async function request(prompt, slice = false) {
-    return await profileAsyncOperation(responseGenerators[llmClient], "request", prompt, buildSystemPrompt(), temperature, false, slice);
+    console.info(`Request prompt: '${prompt}'`);
+    return await profileAsyncOperation(responseGenerators[llmClient], "request", prompt, buildSystemPrompt(), temperature, false, slice, stream);
 }
 
 async function mainRequest(prompt, withTools = false) {
-
     await withSpinner(async () => {
-
-        let slice = false;
+        let slice = withTools;
 
         if (withTools) {
-
-            slice = true;
-
             const toolResponse = await toolRequest(prompt);
-
             if (toolResponse.error) {
-                const errorMessage = `An error occurred in function call tool metadata retrieval: ${toolResponse.error}`;
-                console.error(toolResponse);
-                prompt = `${errorMessage}. Original prompt: ${prompt}`;
+                prompt = handleToolRequestError(toolResponse, prompt);
             } else {
-
-                let extractedMetadata = extractAndParseJsonBlock(toolResponse.text, tools);
-
-                //console.log("extractedMetadata.result.tools", extractedMetadata.result.tools);
-
-                if (extractedMetadata.success && extractedMetadata.result.tools) {
-
-                    async function handleTools(functionCallingTools, indexPrefix = '') {
-                        let userMessages = [];
-                        const formattedToolsList = functionCallingTools.map((item, index) => {
-                            return `${indexPrefix}${index}: ${item.tool}`;
-                        }).join(', ');
-                        const metadataMessage = `Function calling tools set in queue [${formattedToolsList}].`;
-                        appendAndGetMessages(metadataMessage, 'assistant');
-                        saveMessageToFile({ role: "system", content: metadataMessage });
-                        let i = 0;
-                        for (let item of functionCallingTools) {
-                            console.info(item);
-                            let toolName = item.tool;
-                            let toolArguments = item.arguments;
-                            let subsequentTools = item.subsequentTools;
-                            if (toolName in functionToolCallbacks) {
-                                let functionCallResult = await functionToolCallbacks[toolName](toolArguments);
-                                userMessages.push(
-                                    `Tool ${indexPrefix}${i} executed with results: ${JSON.stringify(functionCallResult)}.`
-                                );
-                            } else {
-                                userMessages.push(`Tool ${indexPrefix}${i} not found: ${toolName}`);
-                            }
-                            // If depth of the nested tools is more than five, skip the rest
-                            if ((indexPrefix.split('.').length - 1) < 5) {
-                                if (subsequentTools) {
-                                    appendAndGetMessages(userMessages[userMessages.length-1], 'assistant');
-                                    saveMessageToFile({ role: "system", content: userMessages[userMessages.length-1] });
-                                    const toolResponse = await toolRequest(`Generate JSON metadata for the subsequent tools based on the parent tool ${indexPrefix}${i} results.`);
-                                    if (toolResponse.error) {
-                                        const errorMessage = `An error occurred in function call tool metadata retrieval: ${toolResponse.error}`;
-                                        console.error(toolResponse);
-                                        return `${errorMessage}. Original prompt: ${prompt}`;
-                                    } else {
-                                        let extractedMetadata = extractAndParseJsonBlock(toolResponse.text, tools);
-                                        if (extractedMetadata.success && extractedMetadata.result.tools) {
-                                            userMessages.push(await handleTools(subsequentTools, `${indexPrefix}${i}.`));
-                                        } else {
-                                            console.info("Subsequent tools not found.");
-                                        }
-                                    }
-                                }
-                            } else {
-                                console.info("Skipping nested tools with a greater level than 5.");
-                            }
-                            i++;
+                console.info("Tool response:", toolResponse.text);
+                const extractedMetadatas = extractAndParseJsonBlock(toolResponse.text, tools);
+                if (extractedMetadatas.success) {
+                    // Loop through the extracted metadatas
+                    for (let i = 0; i < extractedMetadatas.result.length; i++) {
+                        const extractedMetadata = extractedMetadatas.result[i];
+                        let extractedTools = [];
+                        // Single tool support
+                        if (extractedMetadata.tool) {
+                            extractedTools = [extractedMetadata];
+                        } else if (extractedMetadata.tools) {
+                            extractedTools = extractedMetadata.tools;
                         }
-                        return userMessages.join('\n');
+                        console.info("Extracted tools:", extractedTools);
+                        if (extractedTools.length > 0) {
+                            // We may enter here multiple times if extractedMetadatas
+                            // contain multiple tools
+                            await handleTools(extractedTools);
+                            slice = false;
+                            // Prompt should be in the message list already
+                            prompt = "Given the results of the executed tools, respond to my prompt.";
+                        }
                     }
-                    
-                    //const metadataTopics = extractedMetadata.result.topics || [];
-                    //const metadataIntent = extractedMetadata.result.intent || "";
-                    prompt = await handleTools(extractedMetadata.result.tools);
-                    slice = false;
                 } else {
-                    console.info("Tools not found.");
+                    //console.info("Tools not found.");
                 }
             }
         }
-
-        await handleResponse(await request(prompt, slice=slice));
-
+        const response = await request(prompt, slice);
+        if (stream) {
+            stopSpinner.isStopped = true;
+            process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
+        }
+        await handleResponse(response);
     });
+}
 
+function handleToolRequestError(toolResponse, prompt) {
+    const errorMessage = `An error occurred in function call tool metadata retrieval: ${toolResponse.error}`;
+    console.error(toolResponse);
+    return `${errorMessage}. Original prompt: ${prompt}`;
+}
+
+async function handleTools(functionCallingTools, indexPrefix = '') {
+    let userMessages = [];
+    const formattedToolsList = formatToolsList(functionCallingTools, indexPrefix);
+    
+    // const metadataMessage = `Role: system. Function calling tools set in queue [${formattedToolsList}].`;
+    // appendAndGetMessages(metadataMessage, 'assistant');
+    // saveMessageToFile({ role: "system", content: metadataMessage });
+
+    console.info(`Function calling tools set in queue [${formattedToolsList}].`)
+
+    for (let i = 0; i < functionCallingTools.length; i++) {
+        const item = functionCallingTools[i];
+        const toolName = item.tool;
+        const toolArguments = item.arguments;
+        const subsequentTools = item.subsequentTools || [];
+
+        console.info(toolName, toolArguments, subsequentTools);
+
+        if (toolName in functionToolCallbacks) {
+            // Indicate the start of the function call to the console with an approrpriate font symbol and message
+            console.log(`\r\x1b[33m⚙️  Executing tool ${indexPrefix}${i}:${toolName} with arguments: ${JSON.stringify(toolArguments)}.\x1b[0m`);
+            const functionCallResult = await functionToolCallbacks[toolName](toolArguments);
+            // Update the former console output with and indication of the result retrieval
+            console.log(`\x1b[33m   Tool ${indexPrefix}${i}:${toolName} executed with results: ${JSON.stringify(functionCallResult)}.\x1b[0m`);
+            // Tool path is its id
+            userMessages.push(`Role: system. Tool ${indexPrefix}${i}:${toolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
+            console.info(`Tool ${indexPrefix}${i}:${toolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
+            // Add information about the call and result to the message list
+            appendAndGetMessages(userMessages[userMessages.length - 1], 'user');
+            saveMessageToFile({ role: "system", content: userMessages[userMessages.length - 1] });
+            if ((indexPrefix.split('.').length - 1) < 5) {
+                if (subsequentTools.length > 0) {
+                    for (let j = 0; j < subsequentTools.length; j++) {
+                        const subsequentToolResult = await handleSubsequentTool(subsequentTools[j], `${indexPrefix}${i}.${j}`);
+                        userMessages.push(subsequentToolResult);
+                    }
+                }
+            } else {
+                console.info("Skipping nested tools with a greater level than 5.");
+            }
+
+        } else {
+            userMessages.push(`Role: system. Tool ${indexPrefix}${i}:${toolName} not found.`);
+            appendAndGetMessages(userMessages[userMessages.length - 1], 'user');
+            saveMessageToFile({ role: "system", content: userMessages[userMessages.length - 1] });
+        }
+    }
+
+    return userMessages.join('\n');
+}
+
+function formatToolsList(functionCallingTools, indexPrefix) {
+    return functionCallingTools.map((item, index) => {
+        return `${indexPrefix}${index}:${item.tool}`;
+    }).join(', ');
+}
+
+async function handleSubsequentTool(subsequentTool, toolIndexPath) {
+    // Support for string item or dictionary
+    const subsequentToolName = subsequentTool.tool;
+    const subsequentToolArguments = subsequentTool.arguments || {};
+    console.info(`Construct arguments for the subsequent tool ${toolIndexPath}:${subsequentToolName} with initial arguments: ${JSON.stringify(subsequentToolArguments)}.`);
+    // If you provide too much information to the prompt, llm messes with the output
+    // Thus arguments are not provided but only in general level
+    const toolResponse = await argumentsRequest(`Role: System. Construct arguments for the subsequent tool ${toolIndexPath}:${subsequentToolName} with initial arguments.`, subsequentToolName, subsequentToolArguments);
+    if (toolResponse.error) {
+        const errorMessage = `An error occurred in function call tool metadata retrieval: ${toolResponse.error}`;
+        console.error(toolResponse);
+        return errorMessage;
+    } else {
+        
+        let userMessages = [];
+        const arguments = extractAndParseJsonBlock(toolResponse.text, null);
+        // Only the first found JSON item is used as arguments
+        // There should'nt even be more than one
+        const toolArguments = arguments.success && arguments.result.length > 0 ? arguments.result[0].arguments || [] : [];
+        const functionCallResult = await functionToolCallbacks[subsequentToolName](toolArguments);
+        
+        console.info(`Tool ${toolIndexPath}:${subsequentToolName} with arguments (${JSON.stringify(toolArguments)}) executed with results: ${JSON.stringify(functionCallResult)}.`);
+        
+        userMessages.push(`Role: system. Tool ${toolIndexPath}:${subsequentToolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
+        const subsequentMetadataTools = arguments.result[0].subsequentTools || [];
+        // Add information about the call and result to the message list
+        appendAndGetMessages(userMessages[userMessages.length - 1], 'user');
+        saveMessageToFile({ role: "system", content: userMessages[userMessages.length - 1] });
+        if (arguments.success && subsequentMetadataTools.length > 0) {
+            userMessages.push(await handleTools(subsequentMetadataTools, `${toolIndexPath}.`));
+        }
+        return userMessages.join('\n');
+    }
 }
 
 // Function to process the CSV file and display histogram
@@ -1689,7 +1724,7 @@ function printInfo() {
    ----------------
    - LLM client:        \x1B[38;5;45m${llmClient}\x1B[0m
    - Model:             \x1B[38;5;45m${model}\x1B[0m
-   - Stream mode:       \x1B[38;5;45m${stream}\x1B[0m
+   - Stream mode:       \x1B[38;5;45m${stream}\x1B[0m (conserns only normal requests, not tools, etc.)
    - Chat mode:         \x1B[38;5;45m${chat}\x1B[0m (variable only in ollama client)
    - Window size:       Last \x1B[38;5;45m${messageLimit}\x1B[0m messages
    - Summary interval   Every \x1B[38;5;45m${summarizeInterval}\x1B[0m messages
@@ -1928,110 +1963,13 @@ async function fetchSummaryAndMessages(dirName = null) {
 ** Main response handler and bootstrap functions
 ****************************************************/
 
-async function handleToolsResponse(response, prompt) {
-    //console.log(response);
-    // There is the previous response available
-    if (response) {
-
-        if (response.error) {
-            console.error(response.error.message);
-            await handleResponse(await spinRequest(prompt, true));
-            return;
-        }
-
-        let extractedMetadata = extractAndParseJsonBlock(response.text, tools);
-
-        console.log("extractedMetadata.result.tools", extractedMetadata.result.tools);
-
-        if (extractedMetadata.success) {
-
-            async function handleTools() {
-                //const metadataTopics = extractedMetadata.result.topics || [];
-                //const metadataIntent = extractedMetadata.result.intent || "";
-                const functionCallingTools = extractedMetadata.result.tools || [];
-                let userMessages = [];
-                // If tools enumerate them and callback with arguments
-                if (functionCallingTools.length) {
-
-                    //userMessages.push("Role: system.");
-                    const metadataMessage = `Function calling tools set in queue: ${JSON.stringify({ tools: functionCallingTools })}. Do not repeat or use the JSON code in the response.`;
-                    appendAndGetMessages(metadataMessage, 'assistant');
-                    saveMessageToFile({ role: "system", content: metadataMessage });
-
-                    let i = 0;
-                    for (let item of functionCallingTools) {
-                        console.log(item);
-                        let toolName = item.tool;
-                        let toolArguments = item.arguments;
-                        //let detailsAreMissing = item.details_are_missing;
-                        //let runToolInChain = item.arguments_can_be_initialized_only_after_retrieving_previous_tool_results;
-                        /*if (detailsAreMissing) {
-                            console.warn(`Details are missing for the tool: ${toolName}`);
-                            prompt = `Role: system. Details are missing for the tool: ${toolName}.`;
-                        } else if (runToolInChain) {
-                            // Set tool call and response to messages
-                            console.log("Run tool in chain");
-                            //let  response = await toolRequest(toolName);
-                            //handleToolsResponse(response);
-                        } else */if (toolName in functionToolCallbacks) {
-                            // Check arguments against schema
-                            //console.log("Tool arguments:", toolArguments);
-                            let functionCallResult = await functionToolCallbacks[toolName](toolArguments);
-                            //console.log(functionCallResult);
-                            //const systemMessage = `Role: system. Called tool ${i} with given arguments. Waiting for output...`;
-                            const userMessage = `Tool ${i} executed with results: ${JSON.stringify(functionCallResult)}.`;
-                            //appendAndGetMessages(systemMessage, 'assistant');
-                            //saveMessageToFile({role: "system", content: systemMessage});
-                            //appendAndGetMessages(userMessage, 'user');
-                            // Return result / consoleOutput
-                            // What to do now because message is already in the
-                            //console.log(userMessage);
-                            userMessages.push(userMessage);
-                        } else {
-                            userMessages.push(`Tool ${i} not found: ${toolName}`);
-                        }
-                        i++;
-                    }
-                }
-                if (userMessages.length > 0) {
-
-                    await handleResponse(await spinRequest(userMessages.join('\n')));
-
-                    /*
-                    const response2 = await spinRequest(userMessages.join('\n'));
-                    if (response2.text) {
-                        extractedMetadata = extractAndParseJsonBlock(response2.text);
-                        if (extractedMetadata.success) {
-                            await handleTools();
-                        }
-                    } else {
-                        await handleResponse(response);
-                    }
-                    */
-
-                } else {
-                    console.log("No user messages generated.");
-                    await handleResponse(await spinRequest(prompt, true));
-                }
-            }
-            await handleTools();
-
-        } else {
-            console.log("No tools found in the response.");
-            await handleResponse(await spinRequest(prompt, true));
-        }
-        // Previous response has not been provided
-    } else {
-        await handleResponse(await spinRequest(prompt));
-    }
-}
-
 async function handleResponse(response) {
     // This checks if the response object is from Axios
     let assistantMessage = "";
+    // Streaming with ollama client
     if (response.on) {
         let audioTextSteamBuffer = "";
-        process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
+        //process.stdout.write("\r\x1B[32m⬤\x1B[0m\n");
         response.on('data', async (chunk) => {
             try {
                 const textChunkDict = JSON.parse(chunk.toString());
@@ -2072,14 +2010,14 @@ async function handleResponse(response) {
             saveMessageToFile({ role: "assistant", content: assistantMessage.trim() });
             rl.prompt();
         });
-        // This checks if the response is a Groq/OpenAI stream
-        // NOTE: we also have stream and llmClient data that could be checked here
+    // Streaming with Groq/OpenAI/Anthropic clients
+    // NOTE: we also have stream and llmClient data that could be checked here
     } else if (typeof response[Symbol.asyncIterator] === 'function') {
-        process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
+        //process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
         try {
             let audioTextSteamBuffer = "";
             for await (const chunk of response) {
-                const content = chunk.choices[0]?.delta?.content;
+                const content = llmClient == "anthropic" ? chunk.delta?.text : chunk.choices[0]?.delta?.content;
                 if (content) {
                     audioTextSteamBuffer += content;
                     if (/(?<![a-zA-Z0-9]\.)[.!?;:]/.test(content) && audioTextSteamBuffer.length > 15) {
@@ -2087,7 +2025,7 @@ async function handleResponse(response) {
                         audioTextSteamBuffer = "";
                     }
                     assistantMessage += content;
-                    process.stdout.write(content);
+                    process.stdout.write(content.replace(/\r/g, ""));
                 }
             }
             // Play the remaining audio text buffer
@@ -2233,6 +2171,9 @@ async function main() {
         const voice = argv.v && argv.v.trim();
         const persona = argv.p && argv.p.trim();
         const personas = Object.keys(assistantPersonas);
+        // Set the stream mode based on the command line argument:
+        // --stream | --no-stream
+        stream = argv.sm;
 
         if (persona == "random") {
             assistantPersona = randomPersona();
@@ -2267,11 +2208,21 @@ async function main() {
         if (toolArgs.length > 0) {
             const [jsonFormatTools, humanFormatTools] = renderSelectedSchemas(toolArgs);
             tools = humanFormatTools;
+            
             system_message_metadata_schema = system_message_metadata_schema.replace("<<tools_part>>", jsonFormatTools ? system_message_metadata_schema_tools_part : "");
+            
             system_message_metadata = system_message_metadata.
-                replace("<<response_schema>>", system_message_metadata_schema.replace(/\s/g, '')).
+                //replace("<<response_schema>>", system_message_metadata_schema.replace(/\s/g, '')).
+                replace("<<response_schema>>", JSON.stringify(JSON.parse(jsonFormatTools ? system_message_metadata_schema_with_tools : system_message_metadata_schema_without_tools))).
                 replace("<<tools>>", jsonFormatTools).
                 replace("<<tools_epilogue>>", jsonFormatTools ? system_message_metadata_tools_epilogue : "");
+            //console.info(system_message_metadata);
+            // This is relevant only when tools are used
+            system_message_metadata2 = system_message_metadata2.
+            replace("<<response_schema>>", JSON.stringify(JSON.parse(system_message_metadata_schema_tool_only))).
+            replace("<<tools>>", jsonFormatTools).
+            replace("<<tools_epilogue>>", jsonFormatTools ? system_message_metadata_tools_epilogue : "");
+            //console.info(system_message_metadata2);
         }
 
         interactiveChatSession(modelName, llmClientName);

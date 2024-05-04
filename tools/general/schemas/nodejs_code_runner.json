@@ -5,7 +5,7 @@
     "properties": {
       "code": {
         "type": "string",
-        "description": "NodeJS code to evaluate. Code expression is evaluated by exec Node function, which does not return the results. Thus, console.log the result. Output will go to the buffer and be handled by the program. Newlines in the code must be escaped with \\n. Always escape single quotes in literals correctly! Use non-blocking code only because user cannot interact with the code execution. For instance, readline input cannot be used in the code. You can refer to a global state object called 'session' to store data between code executions."
+        "description": "NodeJS code to evaluate. Code expression is evaluated by exec Node function, which does not return the results. Thus, console.log the result. Output will go to the buffer and be handled by the program. Newlines in the code must be escaped with \\n. Always escape single quotes in literals correctly! Use non-blocking code only because user cannot interact with the code execution. For instance, readline input or prompt cannot be used in the code. You can refer to an initialized pre-defined global state object called 'session' to store any data between code executions."
       }
     },
     "required": ["code"],

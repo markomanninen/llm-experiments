@@ -1,5 +1,5 @@
 {
-  "description": "A simple Pokemon inspired game variation from rock-paper-scissors where players choose between fire, water, or grass. Fire beats grass, water beats fire, and grass beats water. The game pits the player against the computer in a series of rounds, with the objective being to outguess the opponent and score points based on the results of each round. Alternatively, this can be played as rock_paper_scissors game with the same rules and arguments.",
+  "description": "A simple Pokemon inspired game variation from rock-paper-scissors where players choose between fire, water, or grass. Fire beats grass, water beats fire, and grass beats water. The game pits the player against the computer in a series of rounds, with the objective being to outguess the opponent and score points based on the results of each round. Alternatively, this can be played as rock_paper_scissors game with the same rules and arguments. In case user wants to quit the game, get the final scores.",
   "arguments": {
     "type": "object",
     "properties": {
