@@ -2,6 +2,9 @@
 chats/
 persistent.json
 performance_logs.csv
+google-credentials.json
+data/
+playground/
 
 # Logs
 logs

@@ -25,10 +25,10 @@ require('dotenv').config();
 const applicationName = "llm-experiments";
 
 // Set the path for the log file
-const errorFilePath = path.join(__dirname, `${applicationName}.errors.log`);
-const infoFilePath = path.join(__dirname, `${applicationName}.info.log`);
-const debugFilePath = path.join(__dirname, `${applicationName}.debug.log`);
-const traceFilePath = path.join(__dirname, `${applicationName}.trace.log`);
+const errorFilePath = path.join(__dirname, 'logs', `${applicationName}.errors.log`);
+const infoFilePath = path.join(__dirname, 'logs', `${applicationName}.info.log`);
+const debugFilePath = path.join(__dirname, 'logs', `${applicationName}.debug.log`);
+const traceFilePath = path.join(__dirname, 'logs', `${applicationName}.trace.log`);
 
 // Create a writable stream to the log files
 const errorLogStream = fs.createWriteStream(errorFilePath, { flags: 'a' });
@@ -56,25 +56,29 @@ console.trace = function (message, ...optionalParams) {
 const { 
     prompts, 
     getPrompt,
-    randomPersona,
-    assistantPersonas,
     system_message_metadata_tools_epilogue, 
     system_message_metadata_schema_tools_part, 
     system_message_metadata_schema_arguments,
     system_message_metadata_schema_with_tools,
     system_message_metadata_schema_without_tools,
     system_message_metadata_schema_tool_only,
-} = require('./prompts');
+} = require('./lib/prompts');
 
 let { 
     system_message_metadata,
     system_message_metadata2,
     system_message_metadata_schema
-} = require('./prompts');
+} = require('./lib/prompts');
 
-const { JsonStorage, RuntimeMemoryStorage, nodeCodeRunner, extractAndParseJsonBlock } = require('./utils');
+const { 
+    randomPersona,
+    assistantPersonas
+} = require('./lib/persona');
 
-const jsonStorage = new JsonStorage("persistent.json");
+const { JsonStorage, RuntimeMemoryStorage, nodeCodeRunner, extractAndParseJsonBlock } = require('./lib/utils');
+
+const jsonStorageFile = path.join(__dirname, 'data', 'persistent.json');
+const jsonStorage = new JsonStorage(jsonStorageFile);
 
 const runtimeMemoryStorage = new RuntimeMemoryStorage();
 
@@ -84,7 +88,7 @@ const {
     createRockPaperScissorsGame,
     createNumberGuessingGame,
     createHeadsOrTailsGame
-} = require('./games');
+} = require('./lib/games');
 
 const hangmanGame = createHangmanGame();
 const headsOrTailsGame = createHeadsOrTailsGame();
@@ -93,9 +97,9 @@ const rockPaperScissorsGame = createRockPaperScissorsGame();
 // createNumberGuessingGame() will be constructed for each game
 let numberGuessingGame = null;
 
-const { argv } = require('./args');
+const { argv } = require('./lib/args');
 
-const { renderSelectedSchemas } = require('./tools');
+const { renderSelectedSchemas } = require('./lib/tools');
 
 // Initialize the GROQ SDK with the API key
 const groq = new Groq({
@@ -126,6 +130,8 @@ const openAIModelNames = [
 
 const ttsServices = ["elevenlabs", "deepgram"];
 
+const sttServices = ["google", "deepgram"];
+
 // Eleven Labs voice ID: '29vD33N1CtxCmqQRPOHJ' -> Male voice (Drew)
 // Deepgram voice ID: 'aura-asteria-en' -> Aura Asteria English
 const defaultVoices = {
@@ -133,17 +139,19 @@ const defaultVoices = {
     "deepgram": "aura-asteria-en"
 };
 
+const promptIcon = "➤  ";
+
 // Console input/output handler
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: '➤  '
+    prompt: promptIcon
 });
 
 // Ollama server base URL
 const baseUrl = 'http://localhost:11434';
 // Async request performance log file
-const performanceLogFilepath = 'performance_logs.csv';
+const performanceLogFilepath = path.join(__dirname, 'data', 'performance_logs.csv');
 // Default temperature for LLM generated text
 const temperature = 0.0;
 
@@ -170,6 +178,15 @@ const anthropic = new Anthropic({
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
+
+const audioRecorders = {
+    "google": require('./lib/recorders/GoogleVoiceRecognition'),
+    "deepgram": require('./lib/recorders/DeepgramVoiceRecognition')
+};
+
+let voiceRecognition;
+let audioRecorder;
+let voiceRecognitionStopWord;
 
 /****************************************************
 ** Global variables
@@ -239,6 +256,14 @@ const toolGenerators = {
     "anthropic": sendRequestAndRetrieveResponseClaude,
     "openai": sendRequestAndRetrieveResponseGPT
 }
+
+// Generate a suggestion for the user's prompt
+const suggestionGenerators = {
+    "groq": sendRequestAndRetrieveResponseGroq,
+    "ollama": sendRequestAndRetrieveResponse,
+    "anthropic": sendRequestAndRetrieveResponseClaude,
+    "openai": sendRequestAndRetrieveResponseGPT
+};
 
 /****************************************************
 ** Functions
@@ -949,6 +974,7 @@ async function gPTChatRequest(chat_messages, model, temperature = 0.0, max_token
     if (json) {
         options.response_format = { "type": "json_object" };
     }
+    console.trace("gpt.chat.completions.create", options);
     const chatCompletion = await openai.chat.completions.create(options);
     if (stream) {
         return chatCompletion;
@@ -976,6 +1002,7 @@ async function claudeChatRequest(chat_messages, model, temperature = 0.0, max_to
         options.response_format = {"type": "json_object"};
     }
     */
+    console.trace("anthropic.messages.create", options);
     const chatCompletion = await anthropic.messages.create(options);
     if (stream) {
         return chatCompletion;
@@ -1035,6 +1062,7 @@ async function ollamaChatRequest(chatMessages, model, temperature = 0.0, max_tok
         if (stream) {
             config.responseType = 'stream';
         }
+        console.trace("ollama.chat.message.create", config);
         const response = await axios(config);
         if (stream) {
             // If streaming, handle the response as a stream
@@ -1082,6 +1110,7 @@ async function ollamaPromptRequest(prompt, model, system = "", temperature = 0.0
     if (stream) {
         config.responseType = 'stream';
     }
+    console.trace("ollama.prompt.response.create", config);
     const response = await axios(config);
     if (stream) {
         return response.data;
@@ -1132,16 +1161,13 @@ function appendAndGetMessages(text, role = 'user', count = 49, slice = false) {
 
 // Function to measure execution time of async functions and log to file
 async function profileAsyncOperation(operation, functionName, ...args) {
-    const logFile = path.join(__dirname, performanceLogFilepath);
-    // console.log(`\x1B[33m✍  Writing performance log to: ${logFile}\x1B[0m`);
     const obs = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         const measure = entries[0];
         // Log entry format: client;model;function;duration
         const logEntry = `${llmClient};${model};${measure.name};${measure.duration.toFixed(2)}\n`;
-        //console.log(`\x1B[33m✍  ${logEntry}\x1B[0m`);
         // Append the log entry to the file
-        fs.appendFile(logFile, logEntry, (err) => {
+        fs.appendFile(performanceLogFilepath, logEntry, (err) => {
             if (err) {
                 console.error('Failed to write to log file:', err);
             }
@@ -1156,7 +1182,6 @@ async function profileAsyncOperation(operation, functionName, ...args) {
     performance.mark('end-operation');
     // Measure the duration between marks
     performance.measure(functionName, 'start-operation', 'end-operation');
-    //console.log(`\x1B[33m✍  Profiled operation completed.\x1B[0m`);
     return result;
 }
 
@@ -1334,9 +1359,8 @@ async function processUserInput(input, withToolRequest = true) {
     }
 
     if (prompt.toLowerCase() === '\\histogram') {
-        const logFile = path.join(__dirname, performanceLogFilepath);
-        console.log(`\n\x1B[33m✍  Generating histogram from: ${logFile}\x1B[0m\n`);
-        generateHistogram(logFile);
+        console.log(`\n\x1B[33m✍  Generating histogram from: ${performanceLogFilepath}\x1B[0m\n`);
+        generateHistogram(performanceLogFilepath);
         return;
     }
 
@@ -1450,8 +1474,6 @@ async function processUserInput(input, withToolRequest = true) {
     }
 
     await mainRequest(prompt, withToolRequest && tools);
-
-    showCursor();
 }
 
 async function withSpinner(callback) {
@@ -1490,7 +1512,7 @@ async function toolRequest(prompt, slice = false) {
 }
 
 async function request(prompt, slice = false) {
-    console.info(`Request prompt: '${prompt}'`);
+    console.info(`Request prompt (stream: ${stream}): '${prompt}'`);
     return await profileAsyncOperation(responseGenerators[llmClient], "request", prompt, buildSystemPrompt(), temperature, false, slice, stream);
 }
 
@@ -1536,7 +1558,18 @@ async function mainRequest(prompt, withTools = false) {
             stopSpinner.isStopped = true;
             process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
         }
-        await handleResponse(response);
+        
+        // Set the console text color to green before calling the function
+        // TODO: For some reason. green coloring for responses does not work at the moment...
+        process.stdout.write("\r\x1b[32m");
+        
+        try {
+            // Call the function and await its response
+            await handleResponse(response);
+        } finally {
+            // Reset the console text color to default after the function call
+            process.stdout.write("\x1b[0m");
+        }
     });
 }
 
@@ -1969,7 +2002,7 @@ async function handleResponse(response) {
     // Streaming with ollama client
     if (response.on) {
         let audioTextSteamBuffer = "";
-        //process.stdout.write("\r\x1B[32m⬤\x1B[0m\n");
+        process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
         response.on('data', async (chunk) => {
             try {
                 const textChunkDict = JSON.parse(chunk.toString());
@@ -2013,7 +2046,9 @@ async function handleResponse(response) {
     // Streaming with Groq/OpenAI/Anthropic clients
     // NOTE: we also have stream and llmClient data that could be checked here
     } else if (typeof response[Symbol.asyncIterator] === 'function') {
-        //process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
+        //process.stdout.write("\n");
+        //console.log("\r\x1B[32m⬤\x1B[0m  ");
+        process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
         try {
             let audioTextSteamBuffer = "";
             for await (const chunk of response) {
@@ -2035,11 +2070,14 @@ async function handleResponse(response) {
         } catch (error) {
             console.error("Error while streaming:", error);
         }
+        if (assistantMessage.trim() === "") {
+            process.stdout.write("LLM streaming message empty...");
+        }
         process.stdout.write("\n");
         appendAndGetMessages(assistantMessage.trim(), "assistant");
         saveMessageToFile({ role: "assistant", content: assistantMessage.trim() });
         rl.prompt();
-        // Non-streaming response
+    // Non-streaming response
     } else if (response.text) {
         assistantMessage = `${response.text}`;
         // Clean the text from secret vault commands
@@ -2070,6 +2108,58 @@ async function handleResponse(response) {
         }
         rl.prompt();
     }
+}
+
+const { exec } = require('child_process');
+
+function getCursorPos() {
+    return new Promise((resolve, reject) => {
+        // Assuming this command results in the output "X Y - - 0 5"
+        const command = `powershell -Command "$host.UI.RawUI.CursorPosition"`;
+
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                return reject(error);
+            }
+
+            // Parsing the output based on expected format
+            // Split the stdout into lines
+            const lines = stdout.trim().split('\n');
+            // Assuming the third line contains the coordinates "0 5"
+            if (lines.length >= 3) {
+                const positionParts = lines[2].trim().split(' ');
+                if (positionParts.length === 2) {
+                    const cols = parseInt(positionParts[0], 10);
+                    const rows = parseInt(positionParts[1], 10);
+                    if (!isNaN(rows) && !isNaN(cols)) {
+                        resolve({ rows, cols });
+                    } else {
+                        reject(new Error("Failed to parse cursor positions as numbers"));
+                    }
+                } else {
+                    reject(new Error("Failed to correctly split the third line for cursor positions"));
+                }
+            } else {
+                reject(new Error("Expected stdout format not met"));
+            }
+        });
+    });
+}
+
+function printLines(lines, pos, cursorCurrent) {
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
+        process.stdout.cursorTo(0, pos.rows + index);
+        //console.info(`Line ${index}: ${line}`);
+        process.stdout.write(line);
+        process.stdout.clearLine(1);
+    }
+    process.stdout.cursorTo(cursorCurrent);
+}
+
+async function suggestionRequest(prompt, slice = false) {
+    console.info(`Suggestion request prompt: '${prompt}'`);
+    return await profileAsyncOperation(suggestionGenerators[llmClient], "suggestionRequest", prompt, buildSystemPrompt(), 1.0, false, slice, false);
 }
 
 async function interactiveChatSession(modelName, llmClientName) {
@@ -2106,11 +2196,300 @@ async function interactiveChatSession(modelName, llmClientName) {
     }
 
     console.log(`\n${assistantPersona} interacting with ${default_str}${llmClient} model '${model}'. Enter your prompt (or type '\\info' or '\\exit'). Ping to warm up service...\n`);
+    
     // Warm up the server
-    await processUserInput(getPrompt("pingPrompt", llmClient, model), withToolRequest = false);
+    await mainRequest(getPrompt("pingPrompt", llmClient, model));
+    showCursor();
+
+    let sttBuffer = "";
+    let sentence = "";
+    let cursorPosition = 0;
+    let lastInterimLength = 0;
+
+    // Windows only working at the moment
+    let pos = await getCursorPos();
+    let startRow = pos.rows;
+    
+    async function updateDisplay() {
+        process.stdout.clearScreenDown();
+        let lines = wrapText(promptIcon + sttBuffer, process.stdout.columns - 1);
+        // Save cursor position to restore later
+        //process.stdout.write('\x1b[s');
+        printLines(lines, pos, cursorPosition + promptIcon.length);
+        //process.stdout.cursorTo(cursorPosition);
+        //rl.cursorTo(process.stdout, cursorPosition);
+        // Restore cursor position for user input
+        //process.stdout.write('\x1b[u');
+    }
+    
+    function wrapText(text, maxLineWidth) {
+        let lines = [];
+        let index = 0;
+        while (index < text.length) {
+            if (index + maxLineWidth < text.length) {
+                let lastSpace = text.lastIndexOf(' ', index + maxLineWidth);
+                if (lastSpace > index) {
+                    lines.push(text.substring(index, lastSpace));
+                    index = lastSpace + 1;
+                } else {
+                    lines.push(text.substring(index, index + maxLineWidth));
+                    index += maxLineWidth;
+                }
+            } else {
+                lines.push(text.substring(index));
+                break;
+            }
+        }
+        return lines;
+    }
+    
+    const startRecorder = async () => {
+            
+        if (voiceRecognition) {
+
+            if (voiceRecognition.isRecording()) {
+                return;
+            }
+
+            voiceRecognition.startRecognition(async (spokenText, isFinal, isSpeechfinal = false) => {
+
+                //console.info(`Spoken text: ${spokenText}, isFinal: ${isFinal}, isSpeechfinal: ${isSpeechfinal}`);
+
+                if (promptSuggestionGiven) {
+                    process.stdout.clearLine();
+                    sttBuffer = "";
+                    sentence = "";
+                }
+        
+                promptSuggestionGiven = false;
+
+                if (!isFinal) {
+                    // Handle interim results
+                    if (lastInterimLength > 0) {
+                        sttBuffer = sttBuffer.substring(0, cursorPosition - lastInterimLength) + sttBuffer.substring(cursorPosition);
+                        cursorPosition -= lastInterimLength;
+                    }
+                    sttBuffer = sttBuffer.substring(0, cursorPosition) + spokenText + sttBuffer.substring(cursorPosition);
+                    lastInterimLength = spokenText.length;
+                    cursorPosition += spokenText.length;
+                } else {
+                    // Handle final voice recognition results
+                    if (lastInterimLength > 0) {
+                        sttBuffer = sttBuffer.substring(0, cursorPosition - lastInterimLength) + sttBuffer.substring(cursorPosition);
+                        cursorPosition -= lastInterimLength;
+                    }
+                    lastInterimLength = 0;
+                    sttBuffer = sttBuffer.substring(0, cursorPosition) + spokenText + " " + sttBuffer.substring(cursorPosition);
+                    cursorPosition += spokenText.length + 1;
+                }
+        
+                //console.info(`STT buffer: ${sttBuffer}, cursor position: ${cursorPosition}`);
+
+                sentence = sttBuffer;
+
+                updateDisplay();
+        
+                // Handle stop word termination scenario
+                if (new RegExp("\\b" + voiceRecognitionStopWord + "[\\.\\?\\!]?\\s*$", "i").test(sttBuffer.trim())  && isFinal) {
+                    var regex = new RegExp("[\\s]*" + voiceRecognitionStopWord + "[\\.\\?\\!]?\\s*$", "gi");
+                    sttBuffer = sentence = sttBuffer.trim().replace(regex, "").trim();
+                    if (sentence.length > 0) {
+                        sttBuffer = "";
+                        cursorPosition = 0;
+                        //process.stdout.clearLine();
+                        process.stdout.write('\n');
+                        // process.stdout.cursorTo(0);
+                        // process.stdout.clearScreenDown();
+                        await processUserInput(sentence);
+                    }
+                    sttBuffer = "";
+                    cursorPosition = 0;
+                    sentence = "";
+                    process.stdout.clearLine();
+                    process.stdout.cursorTo(0);
+                    process.stdout.write(promptIcon);
+                }
+            });
+        }
+    }
+
+    process.stdin.on('keypress', async (ch, key) => {
+
+        if (key && key.name === 'tab') {
+
+            const progressBarWidth = process.stdout.columns - promptIcon.length - 1;
+            let progress = 0;
+
+            function progressBarAnimation() {
+                const filledBarLength = Math.floor((progress / 100) * progressBarWidth);
+                const filledBar = '░'.repeat(filledBarLength);
+                process.stdout.write('\u001b[0G\u001b[2K'+promptIcon);
+                process.stdout.write(`${filledBar}`);
+                progress += 2;
+                if (progress > 100) progress = 0;
+            }
+
+            // Start the spinner
+            let spinnerInterval = setInterval(progressBarAnimation, 20);
+            hideCursor();
+            process.stdout.write('\r' + promptIcon);
+            try {
+                const suggestion = await suggestionRequest(getPrompt("promptSuggestionPrompt", llmClient, model), true);
+                clearInterval(spinnerInterval);
+                if (suggestion.error) {
+                    console.error(suggestion);
+                } else {
+                    showCursor();
+                    sttBuffer = sentence = suggestion.text.trim();
+                    cursorPosition = sttBuffer.length;
+                    process.stdout.cursorTo(promptIcon.length);
+                    updateDisplay();
+                    process.stdout.cursorTo(cursorPosition+promptIcon.length);
+                    return;
+                }
+            } catch (error) {
+                clearInterval(spinnerInterval);
+                console.error(error);
+            }
+            return;
+
+        }
+
+        if (key && key.ctrl && key.name === 'c') {
+            sttBuffer = '';
+            sentence = '';
+            cursorPosition = 0;
+            return;
+        }
+    
+        if (key && key.ctrl && key.name === 'u') {
+            sttBuffer = '';
+            sentence = '';
+            cursorPosition = 0;
+            updateDisplay();
+            return;
+        }
+    
+        if (key && key.name === 'backspace' && cursorPosition > -1) {
+            if (cursorPosition === 0) return
+            sttBuffer = sttBuffer.substring(0, cursorPosition - 1) + sttBuffer.substring(cursorPosition);
+            cursorPosition--;
+            updateDisplay();
+            // If cursor is at the beginning of the line, and there are multiple lines in the buffer
+            // move the cursor to the end of the previous line
+            // Count the lines in the buffer
+            const linesCount = Math.ceil((sttBuffer.length) / (process.stdout.columns - 1));
+            // Calculate line shift number by linesCount and current cursor position
+            const lineShift = Math.floor(cursorPosition / (process.stdout.columns - 1));
+            //console.info(`Cursor position: ${cursorPosition} Buffer: ${sttBuffer} Line shift: ${lineShift} Lines count: ${linesCount}`);
+            if (cursorPosition == 0 && linesCount > 0) {
+                process.stdout.cursorTo(cursorPosition+promptIcon.length, pos.rows - linesCount);
+            } else {
+                process.stdout.cursorTo(cursorPosition+promptIcon.length);
+            }
+            sentence = sttBuffer;
+            return;
+        }
+    
+        if (key && key.name === 'delete' && cursorPosition < sttBuffer.length) {
+            sttBuffer = sttBuffer.substring(0, cursorPosition) + sttBuffer.substring(cursorPosition + 1);
+            updateDisplay();
+            return;
+        }
+    
+        if (key && ['right', 'left'].includes(key.name)) {
+            cursorPosition += key.name === 'right' ? 1 : -1;
+            cursorPosition = Math.max(0, Math.min(sttBuffer.length, cursorPosition)); // Ensure cursor is within bounds
+            //console.info(`Cursor position: ${cursorPosition} Buffer: ${sttBuffer}`);
+            updateDisplay();
+            return;
+        }
+
+        if (key && key.name === 'return') {
+
+            //console.info(`Return key pressed. Sentence: ${sttBuffer}`);
+
+            if (promptSuggestionGiven) {
+                // Move cursor to the previous line
+                // If the previous row is the start row, move to the end of the current line
+                // Else move to the previous line
+                //console.info(`Rows: ${pos.rows} Start row: ${startRow}`);
+                if (pos.rows === startRow-1) {
+                    process.stdout.cursorTo(promptIcon.length);
+                } else {
+                    process.stdout.cursorTo(promptIcon.length, pos.rows - 1);
+                }
+                process.stdout.write(sttBuffer.trim());
+                // Clear the rest of the console output
+                process.stdout.clearScreenDown();
+                if (pos.rows === startRow-1) {
+                    process.stdout.cursorTo(promptIcon.length);
+                } else {
+                    process.stdout.cursorTo(promptIcon.length, pos.rows - 1);
+                }
+                pos = await getCursorPos();
+                //promptSuggestionGiven = false;
+                return;
+            }
+            sentence = sttBuffer.trim();
+            if (sentence === "") {
+                cursorPosition = 0;
+                sttBuffer = "";
+                return;
+            }
+            process.stdout.write(`\n`);
+            cursorPosition = 0;
+            sttBuffer = "";
+            return;
+        }
+
+        if (promptSuggestionGiven) {
+            process.stdout.clearLine();
+            sttBuffer = "";
+            sentence = '';
+        }
+
+        promptSuggestionGiven = false;
+    
+        if (ch) {
+            sttBuffer = sttBuffer.substring(0, cursorPosition) + ch + sttBuffer.substring(cursorPosition);
+            cursorPosition++;
+            updateDisplay();
+        }
+    });
+    
+    startRecorder();
+
+    promptSuggestionGiven = false;
     // Start the interactive chat session by reading user input
     rl.on('line', async (input) => {
+
+        // TODO: Sentence and sttBuffer may be redundant...
+        if (input.trim() === "" && sentence.trim() === "" && sttBuffer.trim() === "") {
+            promptSuggestionGiven = true;
+            // Set the sttBuffer with ANSI color code for gray and reset after the text
+            sttBuffer = `\x1b[90mWrite a prompt, or hit [tab] to get a suggestion.\x1b[0m`;
+            //pos = await getCursorPos();
+            updateDisplay();
+            return;
+        }
+        input = sentence.trim() || sttBuffer.trim() || input.trim();
+        //console.log(`sentence: ${sentence}, buffer: ${sttBuffer}, cursor: ${cursorPosition}, input: ${input}`);
+        promptSuggestionGiven = false;
+        sentence = "";
+        sttBuffer = "";
+        cursorPosition = 0;
         await processUserInput(input);
+        showCursor();
+        // Update the current cursor position
+        pos = await getCursorPos();
+        startRow = pos.rows;
+        // Activate the voice recognition again
+        startRecorder();
+        // process.stdout.clearLine();
+        // process.stdout.cursorTo(0);
+        // process.stdout.write(promptIcon);
+        // process.stdout.clearScreenDown();
     });
 
     rl.on('close', async () => {
@@ -2122,11 +2501,15 @@ async function interactiveChatSession(modelName, llmClientName) {
 async function onExit() {
     try {
         // Wait for the async operation to complete
+        process.stdout.write('\r\n');
         await summarizeMessages(messages.filter(msg => msg.role == "user" || msg.role == "assistant"));
     } catch (error) {
         console.error('Error during exit:', error);
     } finally {
         setTimeout(() => {
+            //process.stdin.setRawMode(false);
+            //process.stdin.pause();
+            process.stdout.write('\x1b[?7h');
             process.exit(0);
             // unref ensures that the timer does not require the Node.js event loop to remain active
         }, 1000).unref();
@@ -2169,11 +2552,13 @@ async function main() {
         const audio = argv.a && argv.a.trim();
         const summaryDirectory = argv.s && argv.s.trim();
         const voice = argv.v && argv.v.trim();
+        const recorder = argv.r && argv.r.trim();
         const persona = argv.p && argv.p.trim();
         const personas = Object.keys(assistantPersonas);
         // Set the stream mode based on the command line argument:
         // --stream | --no-stream
-        stream = argv.sm;
+        stream = argv.e;
+        voiceRecognitionStopWord = argv.w || "okey";
 
         if (persona == "random") {
             assistantPersona = randomPersona();
@@ -2193,8 +2578,21 @@ async function main() {
             } else {
                 voiceId = defaultVoices[textToSpeechService];
             }
+            // Using speaker icon inform user about the selected voice
+            console.log(`🔊  Using voice synthesis service: ${audio} (voice: ${voiceId})`);
         } else if (audio && !ttsServices.includes(audio)) {
             console.warn(`Invalid text-to-speech service name: ${audio}. Use one of the following: ${ttsServices.join(", ")}`);
+        }
+
+        if (recorder && audioRecorders.hasOwnProperty(recorder)) {
+            audioRecorder = recorder;
+            // Using microphone icon inform user about the selected audio recorder
+            console.log(`🎤  Using speech recognition service: ${audioRecorder}`);
+            voiceRecognition = new audioRecorders[audioRecorder]({
+                sampleRateHertz: 16000,
+                languageCode: 'en-US',
+                interimResults: true
+            });
         }
 
         if (summaryDirectory) {
@@ -2225,7 +2623,11 @@ async function main() {
             //console.info(system_message_metadata2);
         }
 
-        interactiveChatSession(modelName, llmClientName);
+        interactiveChatSession(modelName, llmClientName).then(() => {
+            console.info("Interactive chat session started.");
+        }).catch((error) => {
+            console.error("Error starting interactive chat session:", error);
+        });
 
     } catch (error) {
         console.error("An error occurred in the main application bootstrap:", error);

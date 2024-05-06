@@ -51,9 +51,15 @@ This command includes several options and flags that modify the behavior of the 
 - `-p, --persona`: Sets the assistant persona. If set to "random," a random persona from a predefined list is used. Personas can influence how responses are formatted or the tone of the interactions.
 - `-a, --audio`: Enables text-to-speech functionality, specifying which service to use (Deepgram or Elevenlabs). If not set, text-to-speech is disabled.
 - `-v, --voice`: Specifies the voice ID for the chosen text-to-speech service, allowing customization of the speech output to match specific voice profiles.
-- `-s, --summary`: If provided, includes a summary of a specific chat session. The value can be a directory name under a `summaries` or `chats` folder or 'recent' to use the most recent summary.
-- `-sm, --stream`: Controls whether the output from the LLM should be streamed (displayed in real-time) or shown after the process completes. The default is false, meaning streaming is off unless explicitly enabled.
+- `-s, --summary`: If provided, includes a summary of a specific chat session. The value can be a directory name under the `chats` folder or 'recent' to use the most recent chat summary.
+- `-e, --stream`: Controls whether the output from the LLM should be streamed (displayed in real-time) or shown after the process completes. The default is false, meaning streaming is off unless explicitly enabled.
+- `-r, --recorder`: Activate voice recognition service for text input. 'google' and 'deepgram' are supported.
 
+If you start application with npm, remember to add extra `--` to the command:
+
+```bash
+npm start -- --no-deprecation llama3-70b-8192 groq -p "No Persona"
+```
 
 ### Additional Options
 
@@ -75,9 +81,16 @@ These commands are available when the script is running:
 - `\window_size <size>`: Set the number of the most recent messages included on LLM text completition calls. This gives context for the LLM inference in addition to system message, which may contain summary of the previpus discussion.
 - `\summarize [<int>]`: Manually activate the summarization of the conversation.
 
+### Runtime variables
+
+`\info` screen shows you a plenty of runtime variable states:
+
+
+
+
 ### Voice chat
 
-To start chat with audio output you need to have an account for Deepgram or Elevenlabs, and configure their API keys to .env file. After that you may open chat with -a argument:
+To start chat with audio output you need to have an account for Deepgram or Elevenlabs, and configure their API keys to `.env` file. After that you may open chat with -a argument:
 
 ```bash
 node .\index.js --no-deprecation llama3-70b-8192 groq -p "Voice Chatter" -a elevenlabs
@@ -85,7 +98,35 @@ node .\index.js --no-deprecation llama3-70b-8192 groq -p "Voice Chatter" -a elev
 
 This will use the default voice of Elevenlabs (Drew) and speak aloud the responses given by LLM. Persona is instructed to keep responses short, from one to three sentences so that dialogue is more natural in a casual chat.
 
-*Speech recognition has not been implemented to the application yet.*
+### Speech recognition
+
+Deepgram and Google Speech recognition are implemented to the llm-experiments application. You can activate them to turn speech to text input. Both services are implemented so that you may mix keyboard typed text and converted voice text. You may even modify the input text, insert voice text in the middle of the prompt. Input may be multiple lines and can be sent to LLM inference with enter or saying "finished" as you last word on the sentence. Trigger word will automaticly send prompt for inference while the trigger word itself is removed from the end of the prompt.
+
+**Deepgram**
+
+For Deepgram.com, you need to use same API key than in TTS service configured to `.env` file. Use `-r` flag with 'deepgram' to activate it.
+
+For instance, to use deepgram for STT (speech-to-text) and TTS (text-to-speech) service, run the main application script with these arguments:
+
+```bash
+node .\index.js --no-deprecation llama3-70b-8192 groq -p "Voice Chatter" -a deepgram -r deepgram
+```
+
+**Google Cloud Speech**
+
+Google requires setting up Cloud service and configuring credentials JSON file path to `.env` file (`GOOGLE_APPLICATION_CREDENTIALS`). See more information on how to generate and upload credential file from:
+
+[https://cloud.google.com/docs/authentication/getting-started](https://cloud.google.com/docs/authentication/getting-started)
+
+You may upload file anywhere in your computer and set the absolute path to the environment variable, or upload credentials file to llm-experiment root directory and set a relative filename.
+
+Once set, you can activate Google's speech recognition with `-r` argument using 'google' as a value.
+
+For instance, to use Google for voice recognition and elevenlabs for voice synthesis, use the following arguments when running the main application script:
+
+```bash
+node .\index.js --no-deprecation llama3 ollama -p "No Persona" -a elevenlabs -r google
+```
 
 ### Configuration
 
@@ -98,8 +139,11 @@ Configure environment variables and other settings in `.env` and other configura
 - `DEEPGRAM_API_KEY`: API key for Deepgram (TTS/STT).
 - `ANTHROPIC_API_KEY`: API key for Anthropic LLM service.
 - `OPENAI_API_KEY`: API key for OpenAI LLM service.
+- `GOOGLE_APPLICATION_CREDENTIALS`: Google credentials JSON file path for voice recognition service.
 
-These are commercial API's, except for Groq, which is free to use at the moment (05/2024) with some rate limitations. If you install ollama (https://ollama.com/) to your local computer, you can use its models with the llm-experiments application for free.
+These are commercial API's, except for Groq, which is free to use at the moment (05/2024) with some rate limitations. If you install ollama (https://ollama.com/) to your local computer, you can use its LLM models with the llm-experiments application for free.
+
+Google Cloud Speech has free initial credits, but after a period of using free tokens, you have to pay for it.
 
 ## Tools
 
@@ -165,7 +209,7 @@ Tools do not use OpenAi/Anthropic native function calling features but a custom 
 
 Depending on the reasoning capabilities, tools have different outcomes. Some work better on one LLM client, some on other. Small models like Llama 3 8B is hardly capable on reasoning the user intent, selecting a right tool and generating valid arguments for the tool.
 
-** Subsequent tools **
+**Subsequent tools**
 
 But already Llama 3 70B run with Groq can produce complex subsequent tool arguments, such as captured in the screenshot below:
 
