@@ -1472,7 +1472,7 @@ async function processUserInput(input, withToolRequest = true) {
         rl.prompt();
         return;
     }
-
+    hideCursor();
     await mainRequest(prompt, withToolRequest && tools);
 }
 
@@ -2110,51 +2110,33 @@ async function handleResponse(response) {
     }
 }
 
-const { exec } = require('child_process');
-
-function getCursorPos() {
+const whenCursorPosition = () => {
     return new Promise((resolve, reject) => {
-        // Assuming this command results in the output "X Y - - 0 5"
-        const command = `powershell -Command "$host.UI.RawUI.CursorPosition"`;
-
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                return reject(error);
-            }
-
-            // Parsing the output based on expected format
-            // Split the stdout into lines
-            const lines = stdout.trim().split('\n');
-            // Assuming the third line contains the coordinates "0 5"
-            if (lines.length >= 3) {
-                const positionParts = lines[2].trim().split(' ');
-                if (positionParts.length === 2) {
-                    const cols = parseInt(positionParts[0], 10);
-                    const rows = parseInt(positionParts[1], 10);
-                    if (!isNaN(rows) && !isNaN(cols)) {
-                        resolve({ rows, cols });
-                    } else {
-                        reject(new Error("Failed to parse cursor positions as numbers"));
-                    }
-                } else {
-                    reject(new Error("Failed to correctly split the third line for cursor positions"));
-                }
+        // Trigger the terminal to report the cursor position
+        process.stdout.write('\x1b[6n');
+        // Wait for the terminal to respond with the cursor position, once
+        process.stdin.once('data', (data) => {
+            // Parse the terminal response (e.g. ^[[24;1R) to extract the cursor position
+            const match = data.toString().match(/\[(\d+);(\d+)R/);
+            if (match) {
+                // Return the cursor position object
+                resolve({ rows: parseInt(match[1], 10), cols: parseInt(match[2], 10) });
             } else {
-                reject(new Error("Expected stdout format not met"));
+                reject(new Error('Failed to parse cursor position'));
             }
         });
     });
 }
 
-function printLines(lines, pos, cursorCurrent) {
+// For multiline support
+function printLines(lines, pos, positionAtTheEndOfLine) {
     for (let index = 0; index < lines.length; index++) {
         const line = lines[index];
         process.stdout.cursorTo(0, pos.rows + index);
-        //console.info(`Line ${index}: ${line}`);
         process.stdout.write(line);
         process.stdout.clearLine(1);
     }
-    process.stdout.cursorTo(cursorCurrent);
+    process.stdout.cursorTo(positionAtTheEndOfLine);
 }
 
 async function suggestionRequest(prompt, slice = false) {
@@ -2199,23 +2181,20 @@ async function interactiveChatSession(modelName, llmClientName) {
     
     // Warm up the server
     await mainRequest(getPrompt("pingPrompt", llmClient, model));
-    showCursor();
 
-    let sttBuffer = "";
-    let sentence = "";
-    let cursorPosition = 0;
-    let lastInterimLength = 0;
-
-    // Windows only working at the moment
-    let pos = await getCursorPos();
-    let startRow = pos.rows;
-    
+    /*
+    // TODO: Multiline support
     async function updateDisplay() {
         process.stdout.clearScreenDown();
         let lines = wrapText(promptIcon + sttBuffer, process.stdout.columns - 1);
         // Save cursor position to restore later
         //process.stdout.write('\x1b[s');
-        printLines(lines, pos, cursorPosition + promptIcon.length);
+        await whenCursorPosition().then((cursor) => {
+            //pos = cursor;
+            printLines(lines, cursor, cursorPosition + promptIcon.length);
+        }).catch((error) => {
+            console.error(`Error getting cursor position: ${error}`);
+        });
         //process.stdout.cursorTo(cursorPosition);
         //rl.cursorTo(process.stdout, cursorPosition);
         // Restore cursor position for user input
@@ -2242,8 +2221,19 @@ async function interactiveChatSession(modelName, llmClientName) {
         }
         return lines;
     }
-    
+    */
+
+    let lastInterimLength = 0;
+    // Multiline cursor position tracker
+    let cursorPosition = 0;
+    // Characters in current line input
+    let inputBuffer = "";
+
+    let promptSuggestionGiven = false;
+
     const startRecorder = async () => {
+
+        cursorPosition = 0;
             
         if (voiceRecognition) {
 
@@ -2257,8 +2247,8 @@ async function interactiveChatSession(modelName, llmClientName) {
 
                 if (promptSuggestionGiven) {
                     process.stdout.clearLine();
-                    sttBuffer = "";
-                    sentence = "";
+                    inputBuffer = "";
+                    rl.line = "";
                 }
         
                 promptSuggestionGiven = false;
@@ -2266,51 +2256,53 @@ async function interactiveChatSession(modelName, llmClientName) {
                 if (!isFinal) {
                     // Handle interim results
                     if (lastInterimLength > 0) {
-                        sttBuffer = sttBuffer.substring(0, cursorPosition - lastInterimLength) + sttBuffer.substring(cursorPosition);
+                        inputBuffer = inputBuffer.substring(0, cursorPosition - lastInterimLength) + inputBuffer.substring(cursorPosition);
                         cursorPosition -= lastInterimLength;
                     }
-                    sttBuffer = sttBuffer.substring(0, cursorPosition) + spokenText + sttBuffer.substring(cursorPosition);
+                    inputBuffer = inputBuffer.substring(0, cursorPosition) + spokenText + inputBuffer.substring(cursorPosition);
                     lastInterimLength = spokenText.length;
                     cursorPosition += spokenText.length;
                 } else {
                     // Handle final voice recognition results
                     if (lastInterimLength > 0) {
-                        sttBuffer = sttBuffer.substring(0, cursorPosition - lastInterimLength) + sttBuffer.substring(cursorPosition);
+                        inputBuffer = inputBuffer.substring(0, cursorPosition - lastInterimLength) + inputBuffer.substring(cursorPosition);
                         cursorPosition -= lastInterimLength;
                     }
                     lastInterimLength = 0;
-                    sttBuffer = sttBuffer.substring(0, cursorPosition) + spokenText + " " + sttBuffer.substring(cursorPosition);
+                    inputBuffer = inputBuffer.substring(0, cursorPosition) + spokenText + " " + inputBuffer.substring(cursorPosition);
                     cursorPosition += spokenText.length + 1;
                 }
-        
-                //console.info(`STT buffer: ${sttBuffer}, cursor position: ${cursorPosition}`);
 
-                sentence = sttBuffer;
-
-                updateDisplay();
+                process.stdout.cursorTo(promptIcon.length);
+                process.stdout.write(inputBuffer);
+                process.stdout.cursorTo(cursorPosition + promptIcon.length);
         
                 // Handle stop word termination scenario
-                if (new RegExp("\\b" + voiceRecognitionStopWord + "[\\.\\?\\!]?\\s*$", "i").test(sttBuffer.trim())  && isFinal) {
+                if (new RegExp("\\b" + voiceRecognitionStopWord + "[\\.\\?\\!]?\\s*$", "i").test(inputBuffer.trim())  && isFinal) {
                     var regex = new RegExp("[\\s]*" + voiceRecognitionStopWord + "[\\.\\?\\!]?\\s*$", "gi");
-                    sttBuffer = sentence = sttBuffer.trim().replace(regex, "").trim();
-                    if (sentence.length > 0) {
-                        sttBuffer = "";
+                    inputBuffer = inputBuffer.trim().replace(regex, "").trim();
+                    if (inputBuffer.length > 0) {
                         cursorPosition = 0;
-                        //process.stdout.clearLine();
                         process.stdout.write('\n');
-                        // process.stdout.cursorTo(0);
-                        // process.stdout.clearScreenDown();
-                        await processUserInput(sentence);
+                        await processUserInput(inputBuffer);
                     }
-                    sttBuffer = "";
+                    inputBuffer = "";
                     cursorPosition = 0;
-                    sentence = "";
                     process.stdout.clearLine();
-                    process.stdout.cursorTo(0);
-                    process.stdout.write(promptIcon);
+                    rl.prompt();
                 }
             });
         }
+    }
+
+    const setCursorToPreviousLine = async () => {
+        await whenCursorPosition().then((cursor) => {
+            process.stdout.cursorTo(0, cursor.rows - 2);
+        }).catch(console.error);
+    }
+
+    const setCursorToBeginningOfPrompt = () => {
+        process.stdout.cursorTo(promptIcon.length);
     }
 
     process.stdin.on('keypress', async (ch, key) => {
@@ -2340,156 +2332,108 @@ async function interactiveChatSession(modelName, llmClientName) {
                     console.error(suggestion);
                 } else {
                     showCursor();
-                    sttBuffer = sentence = suggestion.text.trim();
-                    cursorPosition = sttBuffer.length;
-                    process.stdout.cursorTo(promptIcon.length);
-                    updateDisplay();
-                    process.stdout.cursorTo(cursorPosition+promptIcon.length);
-                    return;
+                    rl.prompt();
+                    inputBuffer = suggestion.text.trim();
+                    rl.line = inputBuffer;
+                    process.stdout.write(inputBuffer);
+                    process.stdout.clearScreenDown();
+                    setCursorToBeginningOfPrompt();
                 }
             } catch (error) {
                 clearInterval(spinnerInterval);
                 console.error(error);
+                showCursor();
             }
             return;
 
         }
 
         if (key && key.ctrl && key.name === 'c') {
-            sttBuffer = '';
-            sentence = '';
+            inputBuffer = '';
+            rl.line = inputBuffer;
             cursorPosition = 0;
             return;
         }
     
         if (key && key.ctrl && key.name === 'u') {
-            sttBuffer = '';
-            sentence = '';
+            inputBuffer = "";
+            rl.line = inputBuffer;
             cursorPosition = 0;
-            updateDisplay();
+            rl.prompt();
             return;
         }
-    
-        if (key && key.name === 'backspace' && cursorPosition > -1) {
-            if (cursorPosition === 0) return
-            sttBuffer = sttBuffer.substring(0, cursorPosition - 1) + sttBuffer.substring(cursorPosition);
+
+        if (key && key.name === 'backspace') {
+            if (cursorPosition === 0) return;
+            inputBuffer = inputBuffer.substring(0, cursorPosition-1) + inputBuffer.substring(cursorPosition);
+            rl.prompt(); 
+            process.stdout.write(inputBuffer);
+            rl.line = inputBuffer;
+            process.stdout.clearScreenDown();
+            process.stdout.cursorTo(cursorPosition + promptIcon.length - 1);
             cursorPosition--;
-            updateDisplay();
-            // If cursor is at the beginning of the line, and there are multiple lines in the buffer
-            // move the cursor to the end of the previous line
-            // Count the lines in the buffer
-            const linesCount = Math.ceil((sttBuffer.length) / (process.stdout.columns - 1));
-            // Calculate line shift number by linesCount and current cursor position
-            const lineShift = Math.floor(cursorPosition / (process.stdout.columns - 1));
-            //console.info(`Cursor position: ${cursorPosition} Buffer: ${sttBuffer} Line shift: ${lineShift} Lines count: ${linesCount}`);
-            if (cursorPosition == 0 && linesCount > 0) {
-                process.stdout.cursorTo(cursorPosition+promptIcon.length, pos.rows - linesCount);
-            } else {
-                process.stdout.cursorTo(cursorPosition+promptIcon.length);
+            return;
+        }
+
+        if (key && key.name === 'delete') {
+            if (cursorPosition < inputBuffer.length) {
+                inputBuffer = inputBuffer.substring(0, cursorPosition) + inputBuffer.substring(cursorPosition + 1);
+                rl.prompt();
+                process.stdout.write(inputBuffer);
+                process.stdout.cursorTo(cursorPosition + promptIcon.length);
             }
-            sentence = sttBuffer;
             return;
         }
-    
-        if (key && key.name === 'delete' && cursorPosition < sttBuffer.length) {
-            sttBuffer = sttBuffer.substring(0, cursorPosition) + sttBuffer.substring(cursorPosition + 1);
-            updateDisplay();
-            return;
-        }
-    
+
         if (key && ['right', 'left'].includes(key.name)) {
             cursorPosition += key.name === 'right' ? 1 : -1;
-            cursorPosition = Math.max(0, Math.min(sttBuffer.length, cursorPosition)); // Ensure cursor is within bounds
-            //console.info(`Cursor position: ${cursorPosition} Buffer: ${sttBuffer}`);
-            updateDisplay();
+            cursorPosition = Math.max(0, Math.min(inputBuffer.length, cursorPosition));
+            process.stdout.cursorTo(cursorPosition + promptIcon.length);
             return;
         }
 
         if (key && key.name === 'return') {
-
-            //console.info(`Return key pressed. Sentence: ${sttBuffer}`);
-
-            if (promptSuggestionGiven) {
-                // Move cursor to the previous line
-                // If the previous row is the start row, move to the end of the current line
-                // Else move to the previous line
-                //console.info(`Rows: ${pos.rows} Start row: ${startRow}`);
-                if (pos.rows === startRow-1) {
-                    process.stdout.cursorTo(promptIcon.length);
-                } else {
-                    process.stdout.cursorTo(promptIcon.length, pos.rows - 1);
-                }
-                process.stdout.write(sttBuffer.trim());
-                // Clear the rest of the console output
-                process.stdout.clearScreenDown();
-                if (pos.rows === startRow-1) {
-                    process.stdout.cursorTo(promptIcon.length);
-                } else {
-                    process.stdout.cursorTo(promptIcon.length, pos.rows - 1);
-                }
-                pos = await getCursorPos();
-                //promptSuggestionGiven = false;
-                return;
-            }
-            sentence = sttBuffer.trim();
-            if (sentence === "") {
-                cursorPosition = 0;
-                sttBuffer = "";
-                return;
-            }
-            process.stdout.write(`\n`);
-            cursorPosition = 0;
-            sttBuffer = "";
+            process.stdout.clearScreenDown();
             return;
         }
 
         if (promptSuggestionGiven) {
-            process.stdout.clearLine();
-            sttBuffer = "";
-            sentence = '';
+            rl.prompt(true);
         }
 
         promptSuggestionGiven = false;
-    
+
         if (ch) {
-            sttBuffer = sttBuffer.substring(0, cursorPosition) + ch + sttBuffer.substring(cursorPosition);
+            inputBuffer = inputBuffer.substring(0, cursorPosition) + ch + inputBuffer.substring(cursorPosition);
+            rl.prompt();
             cursorPosition++;
-            updateDisplay();
+            process.stdout.write(inputBuffer);
+            process.stdout.cursorTo(cursorPosition + promptIcon.length);
         }
+
     });
-    
+
+    showCursor();
     startRecorder();
 
-    promptSuggestionGiven = false;
     // Start the interactive chat session by reading user input
     rl.on('line', async (input) => {
-
-        // TODO: Sentence and sttBuffer may be redundant...
-        if (input.trim() === "" && sentence.trim() === "" && sttBuffer.trim() === "") {
+        if (inputBuffer.trim() === "") {
+            // Set the inputBuffer with ANSI color code for gray
+            await setCursorToPreviousLine();
+            setCursorToBeginningOfPrompt()
+            process.stdout.write(`\x1b[90mWrite a prompt, or hit [tab] to get a suggestion.\x1b[0m`);
+            process.stdout.clearScreenDown();   
+            setCursorToBeginningOfPrompt();
+            inputBuffer = "";
             promptSuggestionGiven = true;
-            // Set the sttBuffer with ANSI color code for gray and reset after the text
-            sttBuffer = `\x1b[90mWrite a prompt, or hit [tab] to get a suggestion.\x1b[0m`;
-            //pos = await getCursorPos();
-            updateDisplay();
             return;
         }
-        input = sentence.trim() || sttBuffer.trim() || input.trim();
-        //console.log(`sentence: ${sentence}, buffer: ${sttBuffer}, cursor: ${cursorPosition}, input: ${input}`);
-        promptSuggestionGiven = false;
-        sentence = "";
-        sttBuffer = "";
-        cursorPosition = 0;
-        await processUserInput(input);
+        await processUserInput(inputBuffer);
+        inputBuffer = "";
         showCursor();
-        // Update the current cursor position
-        pos = await getCursorPos();
-        startRow = pos.rows;
-        // Activate the voice recognition again
+        // Restart recorder in case it has been paused.
         startRecorder();
-        // process.stdout.clearLine();
-        // process.stdout.cursorTo(0);
-        // process.stdout.write(promptIcon);
-        // process.stdout.clearScreenDown();
     });
 
     rl.on('close', async () => {
@@ -2507,8 +2451,6 @@ async function onExit() {
         console.error('Error during exit:', error);
     } finally {
         setTimeout(() => {
-            //process.stdin.setRawMode(false);
-            //process.stdin.pause();
             process.stdout.write('\x1b[?7h');
             process.exit(0);
             // unref ensures that the timer does not require the Node.js event loop to remain active
@@ -2614,13 +2556,11 @@ async function main() {
                 replace("<<response_schema>>", JSON.stringify(JSON.parse(jsonFormatTools ? system_message_metadata_schema_with_tools : system_message_metadata_schema_without_tools))).
                 replace("<<tools>>", jsonFormatTools).
                 replace("<<tools_epilogue>>", jsonFormatTools ? system_message_metadata_tools_epilogue : "");
-            //console.info(system_message_metadata);
             // This is relevant only when tools are used
             system_message_metadata2 = system_message_metadata2.
             replace("<<response_schema>>", JSON.stringify(JSON.parse(system_message_metadata_schema_tool_only))).
             replace("<<tools>>", jsonFormatTools).
             replace("<<tools_epilogue>>", jsonFormatTools ? system_message_metadata_tools_epilogue : "");
-            //console.info(system_message_metadata2);
         }
 
         interactiveChatSession(modelName, llmClientName).then(() => {
