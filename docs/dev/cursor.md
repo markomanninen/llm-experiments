@@ -26,7 +26,7 @@ The idea is to send `\x1b[6n` terminal signal and wait for the position informat
 
 In the appkication logic this is called with:
 
-```
+```node
 await whenCursorPosition().then((cursor) => {
     // Do something with cursor.rows and cursor.cols
 }).catch((error) => {
