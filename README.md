@@ -218,7 +218,7 @@ This leaves the decision on what agent models to use for the main LLM, which in 
 
 Following the the screenshot of the run:
 
-![Running agents for physics problem](.\media/agents-tool-marble-example.png "Running agents for physics problem")
+![Running agents for physics problem](./media/agents-tool-marble-example.png "Running agents for physics problem")
 
 
 -----
@@ -231,7 +231,7 @@ Depending on the reasoning capabilities, tools have different outcomes. Some wor
 
 But already Llama 3 70B run with Groq can produce complex subsequent tool arguments, such as captured in the screenshot below:
 
-![Subsequent tools](.\media/subsequent-tool-example.png "Subsequent tools")
+![Subsequent tools](./media/subsequent-tool-example.png "Subsequent tools")
 
 NodeJS code interpreter tool (`nodejs_code_runner`) produces a random string by compiling and executing a NodeJS code block in the V8 Virtual Machine contexts. Tool execution result is appended to the internal chat message list so that the next tool in sequence has that information available. In the second step, the next tool in queue (`upsert_data_entry`) stores console output data to the runtime memory. It is notable, that these two tools do not share common environment state. Random string is read, inpterpreted, and forwarded to the second tool by LLM inference only.
 
@@ -241,13 +241,13 @@ In the next prompt user could ask for retrieving the runtime memory data item an
 
 Other example is to store and retrieve data from the permanent storage:
 
-![Store tasklist item](.\media/store-tasklist-item.png "Store tasklist item")
+![Store tasklist item](./media/store-tasklist-item.png "Store tasklist item")
 
 ** Retrieving data **
 
 Next day you can start a new session and retrieve the data:
 
-![Retrieve tasklist item](.\media/retrieve-tasklist.png "Retrieve tasklist item")
+![Retrieve tasklist item](./media/retrieve-tasklist.png "Retrieve tasklist item")
 
 Permanent storage is implemented as a simple JSON storage file `persistent.json` in which you can edit data manually.
 
@@ -259,7 +259,7 @@ When you run these models and tools, you are likely to encouter different result
 
 You can draw a commandline histogram for the individual LLM service and model performance by ruinning the application and using command `\histogram`. This will plot a bar chart to compare execution times that different models offer. Local models are strongly dependent on the CPU/GPU memory constraints. Remote services contain the internet connection speed and geolocation location overhead to the final performance.
 
-![Performance histogram](.\media/performance-histogram.png "Performance histogram")
+![Performance histogram](./media/performance-histogram.png "Performance histogram")
 
 ## Contribution
 
