@@ -221,6 +221,8 @@ let voiceId = "aura-asteria-en"
 let textToSpeechService = '';
 //let speechToTextService = 'deepgram';
 
+let hideToolJSONOutput;
+
 /****************************************************
 ** Generators
 ****************************************************/
@@ -1358,6 +1360,14 @@ async function processUserInput(input, withToolRequest = true) {
         return;
     }
 
+    if (prompt.toLowerCase() === '\\clear') {
+        messages = [];
+        // Inform user the operation has been completed
+        console.log(`\x1B[33m✍  All previous messages have been cleared.\x1B[0m`);
+        rl.prompt();
+        return;
+    }
+
     if (prompt.toLowerCase() === '\\histogram') {
         console.log(`\n\x1B[33m✍  Generating histogram from: ${performanceLogFilepath}\x1B[0m\n`);
         generateHistogram(performanceLogFilepath);
@@ -1599,10 +1609,10 @@ async function handleTools(functionCallingTools, indexPrefix = '') {
 
         if (toolName in functionToolCallbacks) {
             // Indicate the start of the function call to the console with an approrpriate font symbol and message
-            console.log(`\r\x1b[33m⚙️  Executing tool ${indexPrefix}${i}:${toolName} with arguments: ${JSON.stringify(toolArguments)}.\x1b[0m`);
+            console.log(`\r\x1b[33m⚙️  Executing tool ${indexPrefix}${i}:${toolName} with arguments: ${hideToolJSONOutput ? "See: ***info.log" : JSON.stringify(toolArguments)}.\x1b[0m`);
             const functionCallResult = await functionToolCallbacks[toolName](toolArguments);
             // Update the former console output with and indication of the result retrieval
-            console.log(`\x1b[33m   Tool ${indexPrefix}${i}:${toolName} executed with results: ${JSON.stringify(functionCallResult)}.\x1b[0m`);
+            console.log(`\x1b[33m   Tool ${indexPrefix}${i}:${toolName} executed with results: ${hideToolJSONOutput ? "See: ***info.log" : JSON.stringify(functionCallResult)}.\x1b[0m`);
             // Tool path is its id
             userMessages.push(`Role: system. Tool ${indexPrefix}${i}:${toolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
             console.info(`Tool ${indexPrefix}${i}:${toolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
@@ -1657,9 +1667,9 @@ async function handleSubsequentTool(subsequentTool, toolIndexPath) {
         const functionCallResult = await functionToolCallbacks[subsequentToolName](toolArguments);
         
         console.info(`Tool ${toolIndexPath}:${subsequentToolName} with arguments (${JSON.stringify(toolArguments)}) executed with results: ${JSON.stringify(functionCallResult)}.`);
-        console.log(`\r\x1b[33m⚙️  Executing tool ${toolIndexPath}:${subsequentToolName} with arguments: ${JSON.stringify(toolArguments)}.\x1b[0m`);
+        console.log(`\r\x1b[33m⚙️  Executing tool ${toolIndexPath}:${subsequentToolName} with arguments: ${hideToolJSONOutput ? "See: ***info.log" : JSON.stringify(toolArguments)}.\x1b[0m`);
         userMessages.push(`Role: system. Tool ${toolIndexPath}:${subsequentToolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
-        console.log(`\x1b[33m   Tool ${toolIndexPath}:${subsequentToolName} executed with results: ${JSON.stringify(functionCallResult)}.\x1b[0m`);
+        console.log(`\x1b[33m   Tool ${toolIndexPath}:${subsequentToolName} executed with results: ${hideToolJSONOutput ? "See: ***info.log" : JSON.stringify(functionCallResult)}.\x1b[0m`);
         const subsequentMetadataTools = arguments.result[0].subsequentTools || [];
         // Add information about the call and result to the message list
         appendAndGetMessages(userMessages[userMessages.length - 1], 'user');
@@ -1732,6 +1742,7 @@ function generateHistogram(filePath) {
 }
 
 // Secret vault key names: \x1B[38;5;45m[${secretVault ? Object.keys(secretVault).join(', ') : 'n/a'}]\x1B[0m
+// \x1B[38;5;45m\\secret <key>\x1B[0m        - retrieve value from vault, functional only in non-streaming mode
 function printInfo() {
 
     console.log(`
@@ -1746,7 +1757,7 @@ function printInfo() {
                           to send context for LLM inference.
    \x1B[38;5;45m\\stream <true|false>\x1B[0m - toggle stream mode
    \x1B[38;5;45m\\messages <int>\x1B[0m      - get the prompt message from the list by index, or all messages
-   \x1B[38;5;45m\\secret <key>\x1B[0m        - retrieve value from vault, functional only in non-streaming mode
+   \x1B[38;5;45m\\clear\x1B[0m               - clear message history from run-time memory (does not clear summary from system prmpt)
    \x1B[38;5;45m\\chat <true|false>\x1B[0m   - toggle between chat and prompt mode (internally different behaviour)
    \x1B[38;5;45m\\model <model>\x1B[0m       - switch to a different model. 'ollama run <model>' first to download the model
    \x1B[38;5;45m\\summarize [<int>]\x1B[0m   - summarize the current discussion. Optional number argument to set
@@ -2002,7 +2013,7 @@ async function handleResponse(response) {
     // Streaming with ollama client
     if (response.on) {
         let audioTextSteamBuffer = "";
-        process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
+        process.stdout.write("\r\x1B[32m⬤  ");
         response.on('data', async (chunk) => {
             try {
                 const textChunkDict = JSON.parse(chunk.toString());
@@ -2027,7 +2038,7 @@ async function handleResponse(response) {
                     if (!chat && llmClient == "ollama") {
                         contextIds = textChunkDict.context;
                     }
-                    process.stdout.write("\n");
+                    process.stdout.write("\x1b[0m\n");
                 }
             } catch (error) {
                 console.error("Error decoding JSON and writing text chunks to stdout:", error);
@@ -2048,7 +2059,7 @@ async function handleResponse(response) {
     } else if (typeof response[Symbol.asyncIterator] === 'function') {
         //process.stdout.write("\n");
         //console.log("\r\x1B[32m⬤\x1B[0m  ");
-        process.stdout.write("\r\x1B[32m⬤\x1B[0m  ");
+        process.stdout.write("\r\x1B[32m⬤  ");
         try {
             let audioTextSteamBuffer = "";
             for await (const chunk of response) {
@@ -2073,7 +2084,7 @@ async function handleResponse(response) {
         if (assistantMessage.trim() === "") {
             process.stdout.write("LLM streaming message empty...");
         }
-        process.stdout.write("\n");
+        process.stdout.write("\x1b[0m\n");
         appendAndGetMessages(assistantMessage.trim(), "assistant");
         saveMessageToFile({ role: "assistant", content: assistantMessage.trim() });
         rl.prompt();
@@ -2088,7 +2099,7 @@ async function handleResponse(response) {
             splitAndPlayTextToSpeech(cleanedText);
         }
         // Print the assistant message in cleaned form
-        console.log("\r\x1B[32m⬤\x1B[0m  " + cleanedText);
+        console.log("\r\x1B[32m⬤  " + cleanedText + "\x1b[0m");
         // Append the original uncleaned message to the messages array
         // In this way the secret vault commands are accessible for the system, but not visible in the chat
         // Of course, user can find these from log file
@@ -2284,7 +2295,9 @@ async function interactiveChatSession(modelName, llmClientName) {
                     if (inputBuffer.length > 0) {
                         cursorPosition = 0;
                         process.stdout.write('\n');
+                        hideCursor();
                         await processUserInput(inputBuffer);
+                        showCursor();
                     }
                     inputBuffer = "";
                     cursorPosition = 0;
@@ -2331,7 +2344,6 @@ async function interactiveChatSession(modelName, llmClientName) {
                 if (suggestion.error) {
                     console.error(suggestion);
                 } else {
-                    showCursor();
                     rl.prompt();
                     inputBuffer = suggestion.text.trim();
                     rl.line = inputBuffer;
@@ -2342,8 +2354,8 @@ async function interactiveChatSession(modelName, llmClientName) {
             } catch (error) {
                 clearInterval(spinnerInterval);
                 console.error(error);
-                showCursor();
             }
+            showCursor();
             return;
 
         }
@@ -2429,6 +2441,7 @@ async function interactiveChatSession(modelName, llmClientName) {
             promptSuggestionGiven = true;
             return;
         }
+        hideCursor();
         await processUserInput(inputBuffer);
         inputBuffer = "";
         showCursor();
@@ -2497,8 +2510,11 @@ async function main() {
         const recorder = argv.r && argv.r.trim();
         const persona = argv.p && argv.p.trim();
         const personas = Object.keys(assistantPersonas);
+        // Set the tool arguments output flag
+        // -j | --no-j or --hide-json-arguments | --no-hide-json-arguments
+        hideToolJSONOutput = argv.j || true;
         // Set the stream mode based on the command line argument:
-        // --stream | --no-stream
+        // -e |--no-e or --stream | --no-stream
         stream = argv.e;
         voiceRecognitionStopWord = argv.w || "okey";
 
