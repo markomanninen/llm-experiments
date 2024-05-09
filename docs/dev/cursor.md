@@ -22,9 +22,9 @@ const whenCursorPosition = () => {
 }
 ```
 
-The idea is to send `\x1b[6n` terminal signal and wait for the position information coming back. Incoming data is awaited and catched with `stdin` and rows / cols data is parsed from the temrinal signal coming in.
+The idea is to send `\x1b[6n` terminal signal and wait for the position information coming back. Incoming data is catched with `stdin` and rows / cols data is parsed from the temrinal signal coming in.
 
-In the appkication logic this is called with:
+In the application logic this is called with:
 
 ```node
 await whenCursorPosition().then((cursor) => {
