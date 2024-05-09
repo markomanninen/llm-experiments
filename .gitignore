@@ -5,6 +5,10 @@ performance_logs.csv
 google-credentials.json
 data/
 playground/
+.db
+*.mdb
+uploads
+
 
 # Logs
 logs

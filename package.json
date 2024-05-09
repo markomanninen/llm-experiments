@@ -10,6 +10,9 @@
         "type": "git",
         "url": "https://github.com/markomanninen/llm-experiments.git"
     },
+    "exports": {
+        "./dist/vectorDB/hnswlib-db.js": "./dist/vectorDB/hnswlib-db.js"
+    },
     "author": "Marko Manninen",
     "license": "ISC",
     "dependencies": {
@@ -17,11 +20,13 @@
         "@deepgram/sdk": "3.3.1",
         "@google-cloud/speech": "^6.5.0",
         "@llm-tools/embedjs": "file:../embedJs",
+        "ajv": "^8.13.0",
         "axios": "1.6.8",
         "dotenv": "16.4.5",
         "elevenlabs": "0.4.1",
         "express": "^4.19.2",
         "groq-sdk": "0.3.3",
+        "lmdb": "^3.0.8",
         "node-record-lpcm16": "^1.0.1",
         "openai": "4.39.0",
         "simple-git": "^3.24.0",

@@ -75,7 +75,17 @@ const {
     assistantPersonas
 } = require('./lib/persona');
 
-const { JsonStorage, RuntimeMemoryStorage, nodeCodeRunner, extractAndParseJsonBlock } = require('./lib/utils');
+const { 
+    JsonStorage, 
+    RuntimeMemoryStorage, 
+    nodeCodeRunner, 
+    extractAndParseJsonBlock 
+} = require('./lib/utils');
+
+const {
+    indexSourcesRAG, 
+    findSourcesRAG
+} = require('./lib/rag');
 
 const jsonStorageFile = path.join(__dirname, 'data', 'persistent.json');
 const jsonStorage = new JsonStorage(jsonStorageFile);
@@ -1007,7 +1017,9 @@ const functionToolCallbacks = {
     "git_status": (kwargs) => gitOperationsDispatcher({ git_status: kwargs }),
     "git_tags": (kwargs) => gitOperationsDispatcher({ git_tags: kwargs }),
     "runtime_memory_storage": runtimeMemoryDispatcher,
-    "ask_multiple_models": askMultipleModels
+    "ask_multiple_models": askMultipleModels,
+    "index_sources": indexSourcesRAG,
+    "find_sources": findSourcesRAG,
 };
 
 /****************************************************

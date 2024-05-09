@@ -1,0 +1,96 @@
+{
+    "description": "Schema for configuring data loaders from various sources using the @llm-tools/embedjs library.",
+    "type": "object",
+    "arguments": {
+        "type": "object",
+        "properties": {
+            "loaders": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": [
+                                "YoutubeLoader",
+                                "YoutubeChannelLoader",
+                                "YoutubeSearchLoader",
+                                "PdfLoader",
+                                "WebLoader",
+                                "ConfluenceLoader",
+                                "SitemapLoader",
+                                "TextLoader"
+                            ]
+                        },
+                        "config": {
+                            "type": "object",
+                            "oneOf": [
+                                {
+                                    "properties": {
+                                        "videoIdOrUrl": { "type": "string" }
+                                    },
+                                    "required": ["videoIdOrUrl"],
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "properties": {
+                                        "channelId": { "type": "string" }
+                                    },
+                                    "required": ["channelId"],
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "properties": {
+                                        "searchString": { "type": "string" }
+                                    },
+                                    "required": ["searchString"],
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "properties": {
+                                        "filePath": { "type": "string" }
+                                    },
+                                    "required": ["filePath"],
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "properties": {
+                                        "url": { "type": "string" },
+                                        "uniqueId": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": ["url"],
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "properties": {
+                                        "spaceNames": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": ["spaceNames"],
+                                    "additionalProperties": false
+                                },
+                                {
+                                    "properties": {
+                                        "text": { "type": "string" }
+                                    },
+                                    "required": ["text"],
+                                    "additionalProperties": false
+                                }
+                            ]
+                        }
+                    },
+                    "required": ["type", "config"],
+                    "additionalProperties": false
+                }
+            }
+        },
+        "required": ["loaders"],
+        "additionalProperties": false
+    }
+}

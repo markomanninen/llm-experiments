@@ -1,0 +1,15 @@
+{
+    "description": "Schema for performing a search query using the RAG application built with the @llm-tools/embedjs library.",
+    "type": "object",
+    "arguments": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The text string to search for within the sources. Implements vector based similarity search."
+            }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+    }
+}
