@@ -5,6 +5,7 @@ const socketIo = require('socket.io');
 const path = require('path');
 
 // Import routes configuration
+// TODO: These are redundant and should be removed after transferring codes
 const configureRoutes = require('./routes');
 const configureRoutesGit = require('./routes/git');
 

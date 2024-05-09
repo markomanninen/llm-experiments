@@ -1757,7 +1757,7 @@ function printInfo() {
                           to send context for LLM inference.
    \x1B[38;5;45m\\stream <true|false>\x1B[0m - toggle stream mode
    \x1B[38;5;45m\\messages <int>\x1B[0m      - get the prompt message from the list by index, or all messages
-   \x1B[38;5;45m\\clear\x1B[0m               - clear message history from run-time memory (does not clear summary from system prmpt)
+   \x1B[38;5;45m\\clear\x1B[0m               - clear message history from run-time memory (does not clear summary from system prompt)
    \x1B[38;5;45m\\chat <true|false>\x1B[0m   - toggle between chat and prompt mode (internally different behaviour)
    \x1B[38;5;45m\\model <model>\x1B[0m       - switch to a different model. 'ollama run <model>' first to download the model
    \x1B[38;5;45m\\summarize [<int>]\x1B[0m   - summarize the current discussion. Optional number argument to set
