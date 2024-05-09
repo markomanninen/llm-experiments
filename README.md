@@ -89,8 +89,6 @@ These commands are available when the script is running:
 `\info` screen shows you a plenty of runtime variable states:
 
 
-
-
 ### Voice chat
 
 To start chat with audio output you need to have an account for Deepgram or Elevenlabs, and configure their API keys to `.env` file. After that you may open chat with -a argument:
@@ -206,11 +204,28 @@ Each tool is configured to operate based on structured arguments that define the
 
 Manages data entries in runtime memory, allowing operations like setting, getting, and deleting data entries.
 
+### Agents
+
+Agents in the context of LLM's can be used to run same or variation of the task asynchronously. Collected responses may be summarized by supoervicsor and the final result forwarded to the main LLM model for inference.
+
+One common LLM test spreading over the Internet is a physics related question about a marble, cup, table, and microwave oven. `ask_multiple_models` function calling tool may be activated and the following question asked:
+
+```text
+let openai:gpt-4-turbo supervise other agents with this enigma: cup with marple inside is set upside down on table. cup is moved to oven w/o changing cup's orientation. where is marple now?
+```
+
+This leaves the decision on what agent models to use for the main LLM, which in this case is 'llama3-70b'. However, the supervisor is prompted to be one of the stronger models 'gpt-4-turbo'.
+
+Following the the screenshot of the run:
+
+![Running agents for physics problem](.\media/agents-tool-marble-example.png "Running agents for physics problem")
+
+
 -----
 
-Tools do not use OpenAi/Anthropic native function calling features but a custom inclusion of the tool definitions to the system prompt, which is interpreted by the large language model by its best understanding.
+Note: Tools do not use OpenAI/Anthropic native function calling features but a custom inclusion of the tool definitions to the system prompt, which is interpreted by the large language model by its best understanding. JSON schemas are well-structured data, but may become large and complicated set of rules that require wuite a decent LLM to comprehend.
 
-Depending on the reasoning capabilities, tools have different outcomes. Some work better on one LLM client, some on other. Small models like Llama 3 8B is hardly capable on reasoning the user intent, selecting a right tool and generating valid arguments for the tool.
+Depending on the reasoning capabilities, tools have different outcomes. Some work better on one LLM client, some on other. Small models like Llama 3 8B is hardly capable on reasoning the user intent, selecting a right tool and generating valid arguments for the tools that require more complicated than few arguments deduction.
 
 **Subsequent tools**
 

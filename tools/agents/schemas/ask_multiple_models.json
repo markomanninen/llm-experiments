@@ -1,0 +1,25 @@
+{
+    "description": "Operations for querying multiple LLM models and interpreting their responses.",
+    "arguments": {
+        "properties": {
+            "type": "object",
+            "agents": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/definitions/agent"
+                },
+                "description": "A list of LLM agents consisting of a client and a model identifier."
+            },
+            "prompt": {
+                "type": "string",
+                "description": "The prompt to be sent to the LLM agents."
+            },
+            "supervisor": {
+                "$ref": "#/definitions/agent",
+                "description": "The supervisor agent that interprets responses from other LLM agents."
+            }
+        },
+        "required": ["agents", "prompt", "supervisor"],
+        "additionalProperties": false
+    }
+}

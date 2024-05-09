@@ -162,6 +162,8 @@ const stopSpinner = { isStopped: true };
 const sessionStart = getCurrentTimestamp();
 const sessionDir = path.join(__dirname, 'chats', sessionStart);
 const sessionFile = path.join(sessionDir, 'session.jsonl');
+const agentsResponsesDir = path.join(sessionDir, 'agents');
+const agentsResponsesFile = path.join(agentsResponsesDir, 'responses.jsonl');
 
 const elevenlabs = new ElevenLabsClient({
     apiKey: process.env.ELEVENLABS_API_KEY
@@ -266,6 +268,14 @@ const suggestionGenerators = {
     "anthropic": sendRequestAndRetrieveResponseClaude,
     "openai": sendRequestAndRetrieveResponseGPT
 };
+
+// Generate a response to the user's prompt
+const agentGenerators = {
+    "groq": sendRequestAndRetrieveResponseGroq,
+    "ollama": sendRequestAndRetrieveResponse,
+    "anthropic": sendRequestAndRetrieveResponseClaude,
+    "openai": sendRequestAndRetrieveResponseGPT
+}
 
 /****************************************************
 ** Functions
@@ -854,6 +864,126 @@ async function gitOperationsDispatcher(operationData) {
     }
 }
 
+function updateProgressBar(modelName, completed, total, startTime) {
+    const elapsedTime = ((performance.now() - startTime) / 1000).toFixed(2);
+    const percentage = Math.floor((completed / total) * 100);
+    const progressBar = "=".repeat((percentage / 10)) + " ".repeat(10 - (percentage / 10));
+    let processing = "";
+    if (modelName === "STARTING..." || modelName === "FINISHED!") {
+        processing = `${modelName}`;
+    } else {
+        processing = `Processing: ${modelName}`;
+    }
+    process.stdout.write(`\r   Progress: [${progressBar}] ${percentage}% ${completed}/${total} - ${processing} - Time: ${elapsedTime}s`);
+    process.stdout.clearScreenDown();
+}
+
+async function askMultipleModels({ agents, prompt, supervisor }) {
+
+    // Check that prompt is given
+    if (!prompt) {
+        return { success: false, message: "No prompt specified." };
+    }
+
+    // Check that agents and supervisor have client and model arguments given and that they are valid
+    if (!agents || !Array.isArray(agents) || !agents.length) {
+        return { success: false, message: "No agents specified." };
+    }
+
+    // Check that all agents have client and model given
+    for (const agent of agents) {
+        if (!agent.client || !agent.model) {
+            return { success: false, message: "All agents must have client and model specified." };
+        }
+    }
+
+    if (supervisor && (!supervisor.client || !supervisor.model)) {
+        return { success: false, message: "Supervisor agent must have client and model specified." };
+    }
+
+    // Check that all agents have valid clients
+    const validClients = ["groq", "ollama", "anthropic", "openai"];
+    for (const agent of agents) {
+        if (!validClients.includes(agent.client)) {
+            return { success: false, message: `Invalid client specified for agent: ${agent.client}` };
+        }
+    }
+
+    // Check that supervisor has a valid client
+    if (supervisor && !validClients.includes(supervisor.client)) {
+        return { success: false, message: `Invalid client specified for supervisor: ${supervisor.client}` };
+    }
+
+    // Check that all agents have valid models
+    const validModels = {
+        "groq": groqModelNames,
+        "ollama": await getOllamaModelNames(),
+        "anthropic": anthropicModelNames,
+        "openai": openAIModelNames
+    };
+
+    for (const agent of agents) {
+        if (!validModels[agent.client].includes(agent.model)) {
+            return { success: false, message: `Invalid model specified for agent: ${agent.model}. Valid models are: ${validModels[agent.client].join(", ")}` };
+        }
+    }
+
+    // Check that supervisor has a valid model
+    if (supervisor && !validModels[supervisor.client].includes(supervisor.model)) {
+        return { success: false, message: `Invalid model specified for supervisor: ${supervisor.model}. Valid models are: ${validModels[supervisor.client].join(", ")}` };
+    }
+
+    try {
+
+        // Make sure the response log directory exists
+        if (!fs.existsSync(agentsResponsesDir)) {
+            fs.mkdirSync(agentsResponsesDir, { recursive: true });
+        }
+
+        const startTime = performance.now();
+        let completedAgents = 0;
+        const totalAgents = agents.length + 1; // Including supervisor as the final step
+        updateProgressBar("STARTING...", completedAgents, totalAgents, startTime);
+
+        // Define the agents requests function
+        const agentPromises = agents.map(async agent => {
+            try {
+                updateProgressBar(agent.model, completedAgents, totalAgents, startTime);
+                completedAgents++;
+                const agentSystemPrompt = getPrompt("agentSystemPrompt", agent.client, agent.model);
+                const agentResponse = await agentRequest(prompt, agent.client, agent.model, agentSystemPrompt);
+                await saveAgentResponseToFile(agent, agentResponse);
+                return { agent, response: agentResponse };
+            } catch (error) {
+                return { agent, response: { success: false, message: error.message } };
+            }
+        });
+
+        // Wait that all responses have been retrieved
+        const agentResponses = await Promise.all(agentPromises);
+
+        let supervisorSystemPrompt = getPrompt("supervisorSystemPrompt", supervisor.client, supervisor.model);
+        supervisorSystemPrompt = supervisorSystemPrompt.replace("<<original_prompt>>", prompt);
+        
+        let supervisorPrompt = getPrompt("supervisorAgentsPrompt", supervisor.client, supervisor.model);
+        supervisorPrompt = supervisorPrompt.replace("<<responses>>", agentResponses.map(({ agent, response }) => `${agent.client}:${agent.model} - ${response.text}\n`).join("\n"));
+
+        updateProgressBar(supervisor.model, completedAgents, totalAgents, startTime);
+        completedAgents++;
+        const supervisorResponse = await agentRequest(supervisorPrompt, supervisor.client, supervisor.model, supervisorSystemPrompt);
+        await saveAgentResponseToFile(supervisor, supervisorResponse);
+        updateProgressBar("FINISHED!", completedAgents, totalAgents, startTime);
+
+        // Output answer as orange text terminal notation
+        console.log(`\n\n\r   Supervisor (${supervisor.client}:${supervisor.model}) response:`, supervisorResponse.text);
+
+        return { success: true, message: supervisorResponse.text };
+    } catch (error) {
+        console.error('Error with API request:', error);
+        return { success: false, message: "Failed to execute API request.", error };
+    }
+}
+
 const functionToolCallbacks = {
     "hangman": hangman,
     "nodejs_code_runner": nodeCodeRunner,
@@ -876,7 +1006,8 @@ const functionToolCallbacks = {
     "git_stash": (kwargs) => gitOperationsDispatcher({ git_stash: kwargs }),
     "git_status": (kwargs) => gitOperationsDispatcher({ git_status: kwargs }),
     "git_tags": (kwargs) => gitOperationsDispatcher({ git_tags: kwargs }),
-    "runtime_memory_storage": runtimeMemoryDispatcher
+    "runtime_memory_storage": runtimeMemoryDispatcher,
+    "ask_multiple_models": askMultipleModels
 };
 
 /****************************************************
@@ -1139,7 +1270,20 @@ function saveMessageToFile(message) {
     fs.appendFileSync(sessionFile, JSON.stringify(message) + "\n");
 }
 
-function appendAndGetMessages(text, role = 'user', count = 49, slice = false) {
+async function saveAgentResponseToFile(agent, response) {
+    const agentResponse = {
+        agent: agent,
+        response: response
+    };
+    agentResponse['created'] = getCurrentTimestamp();
+    fs.appendFileSync(agentsResponsesFile, JSON.stringify(agentResponse) + "\n");
+}
+
+function appendAndGetMessages(text, role = 'user', count = 49, slice = false, bypassMessageHistory = false) {
+
+    if (bypassMessageHistory) {
+        return [{ role, content: text }];
+    }
 
     if (slice) {
         let localMessages = messages.slice();
@@ -1229,7 +1373,7 @@ function checkForSummarization() {
     }
 }
 
-async function sendRequestAndRetrieveResponseGPT(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false) {
+async function sendRequestAndRetrieveResponseGPT(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false, modelName = null, bypassMessageHistory = false) {
 
     saveMessageToFile({ role: "user", content: prompt, system: systemPrompt })
     checkForSummarization();
@@ -1237,9 +1381,9 @@ async function sendRequestAndRetrieveResponseGPT(prompt, systemPrompt = "", temp
     try {
 
         if (stream) {
-            return gPTChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
+            return gPTChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice, bypassMessageHistory = false)], modelName || model, temperature, 1024, 1, null, stream, json);
         } else {
-            const chatCompletion = await gPTChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
+            const chatCompletion = await gPTChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, role = 'user', messageLimit, slice, bypassMessageHistory = false)], modelName || model, temperature, 1024, 1, null, stream, json);
             return { text: chatCompletion.text, context: [] };
         }
     } catch (error) {
@@ -1247,7 +1391,7 @@ async function sendRequestAndRetrieveResponseGPT(prompt, systemPrompt = "", temp
     }
 }
 
-async function sendRequestAndRetrieveResponseClaude(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false) {
+async function sendRequestAndRetrieveResponseClaude(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false, modelName = null, bypassMessageHistory = false) {
 
     saveMessageToFile({ role: "user", content: prompt, system: systemPrompt })
     checkForSummarization();
@@ -1255,9 +1399,9 @@ async function sendRequestAndRetrieveResponseClaude(prompt, systemPrompt = "", t
     try {
 
         if (stream) {
-            return claudeChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
+            return claudeChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice, bypassMessageHistory = false)], modelName || model, temperature, 1024, 1, null, stream, json);
         } else {
-            const chatCompletion = await claudeChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
+            const chatCompletion = await claudeChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice, bypassMessageHistory = false)], modelName || model, temperature, 1024, 1, null, stream, json);
             return { text: chatCompletion.text, context: [] };
         }
     } catch (error) {
@@ -1265,7 +1409,7 @@ async function sendRequestAndRetrieveResponseClaude(prompt, systemPrompt = "", t
     }
 }
 
-async function sendRequestAndRetrieveResponseGroq(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false) {
+async function sendRequestAndRetrieveResponseGroq(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false, modelName = null, bypassMessageHistory = false) {
 
     saveMessageToFile({ role: "user", content: prompt, system: systemPrompt })
     checkForSummarization();
@@ -1273,9 +1417,9 @@ async function sendRequestAndRetrieveResponseGroq(prompt, systemPrompt = "", tem
     try {
 
         if (stream) {
-            return groqChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
+            return groqChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice, bypassMessageHistory = false)], modelName || model, temperature, 1024, 1, null, stream, json);
         } else {
-            const chatCompletion = await groqChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
+            const chatCompletion = await groqChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice, bypassMessageHistory = false)], modelName || model, temperature, 1024, 1, null, stream, json);
             return { text: chatCompletion.text, context: [] };
         }
     } catch (error) {
@@ -1283,7 +1427,7 @@ async function sendRequestAndRetrieveResponseGroq(prompt, systemPrompt = "", tem
     }
 }
 
-async function sendRequestAndRetrieveResponse(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false) {
+async function sendRequestAndRetrieveResponse(prompt, systemPrompt = "", temperature = 1.0, json = false, slice = false, stream = false, modelName = null, bypassMessageHistory = false) {
 
     // Define the base data object
     let messageData = {
@@ -1302,9 +1446,9 @@ async function sendRequestAndRetrieveResponse(prompt, systemPrompt = "", tempera
 
     try {
         if (chat) {
-            return ollamaChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice)], model, temperature, 1024, 1, null, stream, json);
+            return ollamaChatRequest([{ role: "system", content: systemPrompt }, ...appendAndGetMessages(prompt, 'user', messageLimit, slice, bypassMessageHistory = false)], modelName || model, temperature, 1024, 1, null, stream, json);
         } else {
-            return ollamaPromptRequest(prompt, model, systemPrompt, temperature, 1024, 1, null, contextIds, stream, json);
+            return ollamaPromptRequest(prompt, modelName || model, systemPrompt, temperature, 1024, 1, null, bypassMessageHistory ? [] : contextIds, stream, json);
         }
     } catch (error) {
         return { error: `An error occurred in ollama response: ${error.message}` };
@@ -2153,6 +2297,11 @@ function printLines(lines, pos, positionAtTheEndOfLine) {
 async function suggestionRequest(prompt, slice = false) {
     console.info(`Suggestion request prompt: '${prompt}'`);
     return await profileAsyncOperation(suggestionGenerators[llmClient], "suggestionRequest", prompt, buildSystemPrompt(), 1.0, false, slice, false);
+}
+
+async function agentRequest(prompt, client, modelName, agentPrompt, bypassMessageHistory = true) {
+    console.info(`Agent ${client} (${modelName}) request prompt: '${prompt}'`);
+    return await profileAsyncOperation(agentGenerators[client], "agentRequest", prompt, agentPrompt, 0, false, true, false, modelName, bypassMessageHistory);
 }
 
 async function interactiveChatSession(modelName, llmClientName) {

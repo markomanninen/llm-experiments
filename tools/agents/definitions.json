@@ -1,0 +1,18 @@
+{
+    "agent": {
+        "type": "object",
+        "properties": {
+            "client": {
+                "type": "string",
+                "enum": ["ollama", "groq", "openai", "anthropic"],
+                "description": "The client organization providing the LLM model."
+            },
+            "model": {
+                "type": "string",
+                "description": "The specific LLM model identifier. Defaults are: ollama - 'llama3', groq - 'llama3-70b-8192', openai - 'gpt-3.5-turbo-0125', anthropic - 'claude-3-haiku-20240307'"
+            }
+        },
+        "required": ["client", "model"],
+        "additionalProperties": false
+    }
+}
