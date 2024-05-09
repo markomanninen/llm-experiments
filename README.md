@@ -206,7 +206,7 @@ Manages data entries in runtime memory, allowing operations like setting, gettin
 
 ### Agents
 
-Agents in the context of LLM's can be used to run same or variation of the task asynchronously. Collected responses may be summarized by supoervicsor and the final result forwarded to the main LLM model for inference.
+Agents in the context of LLM's can be used to run same or variation of the task asynchronously. Collected responses may be summarized by supervisor and the final result forwarded to the main LLM model for inference.
 
 One common LLM test spreading over the Internet is a physics related question about a marble, cup, table, and microwave oven. `ask_multiple_models` function calling tool may be activated and the following question asked:
 
@@ -251,7 +251,7 @@ Next day you can start a new session and retrieve the data:
 
 Permanent storage is implemented as a simple JSON storage file `persistent.json` in which you can edit data manually.
 
-** Cherry picking **
+**Cherry picking**
 
 When you run these models and tools, you are likely to encouter different results due to the statistical nature of the Large Language Models, varying capabilities of the different models, and complex settings initialized by the system prompts. Even when the LLM inference temperature is set to 0, to configure more deterministic responses, there will be variations. Persona defined for the llm-experiment application has a huge role in producing initial state and starting point for the chat. Developing custom persona that has least creativity in its character, and using it each time may give more predictive responses.
 
