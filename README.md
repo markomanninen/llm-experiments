@@ -237,13 +237,13 @@ NodeJS code interpreter tool (`nodejs_code_runner`) produces a random string by 
 
 In the next prompt user could ask for retrieving the runtime memory data item and get the stored value any time later in the same chat session.
 
-** Storing data to permanent memory **
+**Storing data to permanent memory**
 
 Other example is to store and retrieve data from the permanent storage:
 
 ![Store tasklist item](./media/store-tasklist-item.png "Store tasklist item")
 
-** Retrieving data **
+**Retrieving data**
 
 Next day you can start a new session and retrieve the data:
 
