@@ -1661,6 +1661,13 @@ function buildSystemPrompt() {
         //replace("<<miscallaneous_tools>>", (stream ? "n/a" : getPrompt("secretVaultPrompt", llmClient, model).
         //replace("<<vault>>", JSON.stringify(secretVault)))).
         // Start keeping the latest cumulative summary on the system prompt when message limit has been exceeded
+        replace("<<llm_client>>", llmClient).
+        replace("<<llm_model>>", model).
+        replace("<<stream_mode>>", (stream ? "on" : "off")).
+        replace("<<chat_mode>>", (chat ? "on" : 'off')).
+        replace("<<window_size>>", messageLimit).
+        replace("<<summary_interval>>", summarizeInterval).
+        replace("<<tts_service>>", textToSpeechService).
         replace("<<summary>>", (summary ? summary : 'n/a')).
         replace("<<global_variables>>", JSON.stringify(variables));
 }
@@ -1742,6 +1749,8 @@ async function mainRequest(prompt, withTools = false) {
 function handleToolRequestError(toolResponse, prompt) {
     const errorMessage = `An error occurred in function call tool metadata retrieval: ${toolResponse.error}`;
     console.error(toolResponse);
+    // Inform user with red message that the tool is not found
+    console.log(`\x1b[31m${toolResponse.error}.\x1b[0m`);
     return `${errorMessage}. Original prompt: ${prompt}`;
 }
 
@@ -1787,6 +1796,8 @@ async function handleTools(functionCallingTools, indexPrefix = '') {
             }
 
         } else {
+            // Inform user with red message that the tool is not found
+            console.log(`\x1b[31mTool ${indexPrefix}${i}:${toolName} not found.\x1b[0m`);
             userMessages.push(`Role: system. Tool ${indexPrefix}${i}:${toolName} not found.`);
             appendAndGetMessages(userMessages[userMessages.length - 1], 'user');
             saveMessageToFile({ role: "system", content: userMessages[userMessages.length - 1] });
@@ -2479,6 +2490,13 @@ async function interactiveChatSession(modelName, llmClientName) {
         process.stdout.cursorTo(promptIcon.length);
     }
 
+    process.stdout.on('resize', () => {        
+        rl.prompt();
+        process.stdout.clearScreenDown();
+        process.stdout.write(inputBuffer);
+        process.stdout.cursorTo(cursorPosition + promptIcon.length);
+    });
+
     process.stdin.on('keypress', async (ch, key) => {
 
         if (key && key.name === 'tab') {
@@ -2539,21 +2557,25 @@ async function interactiveChatSession(modelName, llmClientName) {
         if (key && key.name === 'backspace') {
             if (cursorPosition === 0) return;
             inputBuffer = inputBuffer.substring(0, cursorPosition-1) + inputBuffer.substring(cursorPosition);
-            rl.prompt(); 
-            process.stdout.write(inputBuffer);
-            rl.line = inputBuffer;
-            process.stdout.clearScreenDown();
-            process.stdout.cursorTo(cursorPosition + promptIcon.length - 1);
             cursorPosition--;
+            
+            rl.prompt();
+            process.stdout.clearScreenDown();
+            process.stdout.write(inputBuffer);
+            process.stdout.cursorTo(cursorPosition + promptIcon.length);
+
             return;
         }
 
         if (key && key.name === 'delete') {
             if (cursorPosition < inputBuffer.length) {
                 inputBuffer = inputBuffer.substring(0, cursorPosition) + inputBuffer.substring(cursorPosition + 1);
+                
                 rl.prompt();
+                process.stdout.clearScreenDown();
                 process.stdout.write(inputBuffer);
                 process.stdout.cursorTo(cursorPosition + promptIcon.length);
+
             }
             return;
         }
@@ -2561,7 +2583,12 @@ async function interactiveChatSession(modelName, llmClientName) {
         if (key && ['right', 'left'].includes(key.name)) {
             cursorPosition += key.name === 'right' ? 1 : -1;
             cursorPosition = Math.max(0, Math.min(inputBuffer.length, cursorPosition));
+            
+            rl.prompt();
+            process.stdout.clearScreenDown();
+            process.stdout.write(inputBuffer);
             process.stdout.cursorTo(cursorPosition + promptIcon.length);
+
             return;
         }
 
@@ -2571,15 +2598,19 @@ async function interactiveChatSession(modelName, llmClientName) {
         }
 
         if (promptSuggestionGiven) {
-            rl.prompt(true);
+            rl.prompt();
+            process.stdout.clearScreenDown();
+            process.stdout.write(inputBuffer);
+            process.stdout.cursorTo(cursorPosition + promptIcon.length);
         }
 
         promptSuggestionGiven = false;
 
         if (ch) {
             inputBuffer = inputBuffer.substring(0, cursorPosition) + ch + inputBuffer.substring(cursorPosition);
-            rl.prompt();
             cursorPosition++;
+            rl.prompt();
+            process.stdout.clearScreenDown();
             process.stdout.write(inputBuffer);
             process.stdout.cursorTo(cursorPosition + promptIcon.length);
         }
