@@ -1765,10 +1765,10 @@ async function handleTools(functionCallingTools, indexPrefix = '') {
 
         if (toolName in functionToolCallbacks) {
             // Indicate the start of the function call to the console with an approrpriate font symbol and message
-            console.log(`\r\x1b[33m⚙️  Executing tool ${indexPrefix}${i}:${toolName} with arguments: ${hideToolJSONOutput ? "See: ***info.log" : JSON.stringify(toolArguments)}.\x1b[0m`);
+            console.log(`\r\x1b[33m⚙️  Executing tool ${indexPrefix}${i}:${toolName} with arguments: ${hideToolJSONOutput ? "See: ./logs/llm-experiments.info.log" : JSON.stringify(toolArguments)}.\x1b[0m`);
             const functionCallResult = await functionToolCallbacks[toolName](toolArguments);
             // Update the former console output with and indication of the result retrieval
-            console.log(`\x1b[33m   Tool ${indexPrefix}${i}:${toolName} executed with results: ${hideToolJSONOutput ? "See: ***info.log" : JSON.stringify(functionCallResult)}.\x1b[0m`);
+            console.log(`\x1b[33m   Tool ${indexPrefix}${i}:${toolName} executed with results: ${hideToolJSONOutput ? "See: ./logs/llm-experiments.info.log" : JSON.stringify(functionCallResult)}.\x1b[0m`);
             // Tool path is its id
             userMessages.push(`Role: system. Tool ${indexPrefix}${i}:${toolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
             console.info(`Tool ${indexPrefix}${i}:${toolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
@@ -1823,9 +1823,9 @@ async function handleSubsequentTool(subsequentTool, toolIndexPath) {
         const functionCallResult = await functionToolCallbacks[subsequentToolName](toolArguments);
         
         console.info(`Tool ${toolIndexPath}:${subsequentToolName} with arguments (${JSON.stringify(toolArguments)}) executed with results: ${JSON.stringify(functionCallResult)}.`);
-        console.log(`\r\x1b[33m⚙️  Executing tool ${toolIndexPath}:${subsequentToolName} with arguments: ${hideToolJSONOutput ? "See: ***info.log" : JSON.stringify(toolArguments)}.\x1b[0m`);
+        console.log(`\r\x1b[33m⚙️  Executing tool ${toolIndexPath}:${subsequentToolName} with arguments: ${hideToolJSONOutput ? "See: ./logs/llm-experiments.info.log" : JSON.stringify(toolArguments)}.\x1b[0m`);
         userMessages.push(`Role: system. Tool ${toolIndexPath}:${subsequentToolName} executed with results: ${JSON.stringify(functionCallResult)}.`);
-        console.log(`\x1b[33m   Tool ${toolIndexPath}:${subsequentToolName} executed with results: ${hideToolJSONOutput ? "See: ***info.log" : JSON.stringify(functionCallResult)}.\x1b[0m`);
+        console.log(`\x1b[33m   Tool ${toolIndexPath}:${subsequentToolName} executed with results: ${hideToolJSONOutput ? "See: ./logs/llm-experiments.info.log" : JSON.stringify(functionCallResult)}.\x1b[0m`);
         const subsequentMetadataTools = arguments.result[0].subsequentTools || [];
         // Add information about the call and result to the message list
         appendAndGetMessages(userMessages[userMessages.length - 1], 'user');
@@ -2673,7 +2673,7 @@ async function main() {
         const personas = Object.keys(assistantPersonas);
         // Set the tool arguments output flag
         // -j | --no-j or --hide-json-arguments | --no-hide-json-arguments
-        hideToolJSONOutput = argv.j || true;
+        hideToolJSONOutput = argv.j;
         // Set the stream mode based on the command line argument:
         // -e |--no-e or --stream | --no-stream
         stream = argv.e;
