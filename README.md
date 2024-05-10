@@ -54,7 +54,7 @@ This command includes several options and flags that modify the behavior of the 
 - `-s, --summary`: If provided, includes a summary of a specific chat session. The value can be a directory name under the `chats` folder or 'recent' to use the most recent chat summary.
 - `-e, --stream`: Controls whether the output from the LLM should be streamed (displayed in real-time) or shown after the process completes. The default is false, meaning streaming is off unless explicitly enabled.
 - `-r, --recorder`: Activate voice recognition service for text input. 'google' and 'deepgram' are supported.
-- `-g, --hide-json-arguments`: Hide function calling tool JSON arguments from output. Default is true.
+- `-j, --hide-json-arguments`: Hide function calling tool JSON arguments from output. Instead show a link to log files. Default is true.
 
 If you start application with npm, remember to add extra `--` to the command:
 
@@ -80,13 +80,20 @@ These commands are available when the script is running:
 - `\messages`: Get the prompt message from the list by index, or all messages.
 - `\clear`: Clear message history from run-time memory (does not clear summary from system prompt).
 - `\chat <true|false>`: Toggle between chat and prompt mode in Ollama client. Not applicable in other clients.
-- `\audio <service>`: Activate text-to-speech service. Options are Elevenlabs for a state-of-art voice models and Deepgram for ultrafast response times.
+- `\audio <service>`: Activate text-to-speech service. Options are Elevenlabs for the state-of-the-art voice models and Deepgram for ultrafast response times (if internet connection speed is good).
 - `\window_size <size>`: Set the number of the most recent messages included on LLM text completition calls. This gives context for the LLM inference in addition to system message, which may contain summary of the previpus discussion.
 - `\summarize [<int>]`: Manually activate the summarization of the conversation.
 
 ### Runtime variables
 
-`\info` screen shows you a plenty of runtime variable states:
+`\info` screen shows you a plenty of runtime variable states, such as LLM client, Model, Stream mode, Chat mode, Window size, Summary interval, and Text-to-speech service.
+  
+Further more, system message contents can be find from `\info` screen:
+
+- Assistant persona text that is the foremost part of the main request system prompt.
+- Global variables that can be set with commands `\set` / `\get` and stay independent from chat message list
+- System prompt template used in main LLM requests. Note that tools, summaries, etc. use their own system message prompts.
+- Current summary of the discussion session. This keeps track of the conversation independent from the message history so that even the history is cleared, or message window limit is exceeded, there is still a hint of topic discussed in the past. The very same slot in the system message is used to load previous conversation at the llm application start up, if `-s recent` argument is used.
 
 
 ### Voice chat
